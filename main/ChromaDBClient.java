@@ -2,40 +2,36 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
+import com.google.gson.Gson;
+import java.util.HashMap;
+import java.util.Map;
 
 public class ChromaDBClient {
     private final String baseUrl;
+    private final Gson gson = new Gson();
 
     public ChromaDBClient(String baseUrl) {
         this.baseUrl = baseUrl;
     }
 
-    // Helper: Convert float array to JSON array string
-    private String floatArrayToJson(float[] arr) {
-        if (arr == null || arr.length == 0) return "[]";
-        StringBuilder sb = new StringBuilder();
-        sb.append("[");
-        for (int i = 0; i < arr.length; i++) {
-            // Use String.format with Locale.US to ensure period decimal separator
-            sb.append(String.format(java.util.Locale.US, "%f", arr[i]));
-            if (i < arr.length - 1) sb.append(",");
-        }
-        sb.append("]");
-        return sb.toString();
-    }
-
     // Add a document with embedding to a collection
     public String addDocument(String collection, String docId, String document, float[] embedding) throws IOException {
         String endpoint = baseUrl + "/collections/" + collection + "/add";
-        String json = String.format("{\"id\":\"%s\",\"document\":\"%s\",\"embedding\":%s}",
-                docId, escapeJson(document), floatArrayToJson(embedding));
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("id", docId);
+        payload.put("document", document);
+        payload.put("embedding", embedding);
+        String json = gson.toJson(payload);
         return postJson(endpoint, json);
     }
 
     // Query nearest neighbors by embedding
     public String queryNearest(String collection, float[] embedding, int topK) throws IOException {
         String endpoint = baseUrl + "/collections/" + collection + "/query";
-        String json = String.format("{\"embedding\":%s,\"top_k\":%d}", floatArrayToJson(embedding), topK);
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("embedding", embedding);
+        payload.put("top_k", topK);
+        String json = gson.toJson(payload);
         return postJson(endpoint, json);
     }
 
@@ -64,14 +60,14 @@ public class ChromaDBClient {
             }
         }
         int code = conn.getResponseCode();
-        InputStream is = (code >= 200 && code < 300) ? conn.getInputStream() : conn.getErrorStream();
-        BufferedReader reader = new BufferedReader(new InputStreamReader(is));
         StringBuilder response = new StringBuilder();
-        String line;
-        while ((line = reader.readLine()) != null) {
-            response.append(line);
+        try (InputStream is = (code >= 200 && code < 300) ? conn.getInputStream() : conn.getErrorStream();
+             BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
+            String line;
+            while ((line = reader.readLine()) != null) {
+                response.append(line);
+            }
         }
-        reader.close();
         conn.disconnect();
         if (code < 200 || code >= 300) {
             String msg = String.format("HTTP error %d: %s", code, response.toString());
@@ -79,31 +75,6 @@ public class ChromaDBClient {
             throw new IOException(msg);
         }
         return response.toString();
-    }
-
-    // Helper: Escape JSON string
-    private String escapeJson(String s) {
-        if (s == null) return null;
-        StringBuilder sb = new StringBuilder();
-        for (int i = 0; i < s.length(); i++) {
-            char c = s.charAt(i);
-            switch (c) {
-                case '"': sb.append("\\\""); break;
-                case '\\': sb.append("\\\\"); break;
-                case '\b': sb.append("\\b"); break;
-                case '\f': sb.append("\\f"); break;
-                case '\n': sb.append("\\n"); break;
-                case '\r': sb.append("\\r"); break;
-                case '\t': sb.append("\\t"); break;
-                default:
-                    if (c < 0x20 || c > 0x7E) {
-                        sb.append(String.format("\\u%04x", (int) c));
-                    } else {
-                        sb.append(c);
-                    }
-            }
-        }
-        return sb.toString();
     }
 
     // Example usage
