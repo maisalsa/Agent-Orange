@@ -88,6 +88,37 @@ EXPECTED_BINARIES=(
     "bin/llama.dll"
 )
 
+# Required system commands
+REQUIRED_COMMANDS=(
+    "java"
+    "javac"
+    "gcc"
+    "g++"
+    "cmake"
+    "make"
+    "python3"
+)
+
+# JNI library files to check
+JNI_LIBRARIES=(
+    "bin/libllama.so"
+    "bin/libllama.dylib"
+    "bin/llama.dll"
+    "libllama.so"
+    "libllama.dylib"
+    "llama.dll"
+)
+
+# Ghidra installation paths to check
+GHIDRA_PATHS=(
+    "/opt/ghidra/support/analyzeHeadless"
+    "/usr/share/ghidra/support/analyzeHeadless"
+    "/usr/local/ghidra/support/analyzeHeadless"
+    "/Applications/ghidra/support/analyzeHeadless"
+    "$HOME/ghidra/support/analyzeHeadless"
+    "$HOME/ghidra_*/support/analyzeHeadless"
+)
+
 # ============================================================================
 # UTILITY FUNCTIONS
 # ============================================================================
@@ -220,6 +251,90 @@ check_command() {
     fi
 }
 
+# Check all required system commands
+check_system_commands() {
+    print_status "STEP" "Checking required system commands..."
+    
+    local missing_commands=()
+    
+    for cmd in "${REQUIRED_COMMANDS[@]}"; do
+        if ! check_command "$cmd"; then
+            missing_commands+=("$cmd")
+        fi
+    done
+    
+    if [[ ${#missing_commands[@]} -gt 0 ]]; then
+        print_status "STEP" "Installing missing system commands..."
+        
+        if [[ $PKG_MANAGER == "apt-get" ]]; then
+            # Install build tools and development packages
+            local packages=()
+            for cmd in "${missing_commands[@]}"; do
+                case $cmd in
+                    "java"|"javac")
+                        packages+=("openjdk-17-jdk")
+                        ;;
+                    "gcc"|"g++")
+                        packages+=("build-essential")
+                        ;;
+                    "cmake")
+                        packages+=("cmake")
+                        ;;
+                    "make")
+                        packages+=("build-essential")
+                        ;;
+                    "python3")
+                        packages+=("python3")
+                        ;;
+                esac
+            done
+            
+            # Remove duplicates and install
+            packages=($(printf "%s\n" "${packages[@]}" | sort -u))
+            for pkg in "${packages[@]}"; do
+                install_package "$pkg" "$pkg"
+            done
+            
+        elif [[ $PKG_MANAGER == "pacman" ]]; then
+            # Install build tools and development packages
+            local packages=()
+            for cmd in "${missing_commands[@]}"; do
+                case $cmd in
+                    "java"|"javac")
+                        packages+=("jdk-openjdk")
+                        ;;
+                    "gcc"|"g++"|"make")
+                        packages+=("base-devel")
+                        ;;
+                    "cmake")
+                        packages+=("cmake")
+                        ;;
+                    "python3")
+                        packages+=("python")
+                        ;;
+                esac
+            done
+            
+            # Remove duplicates and install
+            packages=($(printf "%s\n" "${packages[@]}" | sort -u))
+            for pkg in "${packages[@]}"; do
+                install_package "$pkg" "$pkg"
+            done
+        fi
+        
+        # Re-check commands after installation
+        print_status "STEP" "Re-checking system commands after installation..."
+        for cmd in "${missing_commands[@]}"; do
+            if check_command "$cmd"; then
+                print_status "SUCCESS" "$cmd successfully installed"
+            else
+                print_status "ERROR" "Failed to install $cmd"
+                ((FAILED_INSTALLATIONS++))
+            fi
+        done
+    fi
+}
+
 # Install package using detected package manager
 install_package() {
     local package=$1
@@ -258,118 +373,51 @@ check_java_version() {
     fi
 }
 
-# Install Java
-install_java() {
-    print_status "STEP" "Installing Java 17+..."
-    
-    if [[ $PKG_MANAGER == "apt-get" ]]; then
-        # Try to install OpenJDK 17 or higher
-        if sudo $PKG_INSTALL "openjdk-17-jdk"; then
-            print_status "SUCCESS" "OpenJDK 17 installed"
-            return 0
-        elif sudo $PKG_INSTALL "openjdk-11-jdk"; then
-            print_status "WARNING" "OpenJDK 11 installed (minimum recommended: 17)"
-            return 0
-        else
-            print_status "ERROR" "Failed to install Java"
-            return 1
-        fi
-    elif [[ $PKG_MANAGER == "pacman" ]]; then
-        if sudo $PKG_INSTALL "jdk-openjdk"; then
-            print_status "SUCCESS" "OpenJDK installed"
-            return 0
-        else
-            print_status "ERROR" "Failed to install Java"
-            return 1
-        fi
-    fi
-}
 
-# Check and install compiler toolchain
-check_compiler() {
-    print_status "STEP" "Checking compiler toolchain..."
-    
-    local compiler_found=false
-    
-    if check_command "gcc" "GCC"; then
-        compiler_found=true
-    fi
-    
-    if check_command "g++" "G++"; then
-        compiler_found=true
-    fi
-    
-    if [[ $compiler_found == false ]]; then
-        print_status "STEP" "Installing compiler toolchain..."
-        
-        if [[ $PKG_MANAGER == "apt-get" ]]; then
-            install_package "build-essential" "Build Tools"
-        elif [[ $PKG_MANAGER == "pacman" ]]; then
-            install_package "base-devel" "Build Tools"
-        fi
-    fi
-}
 
-# Check and install CMake
-check_cmake() {
-    print_status "STEP" "Checking CMake..."
-    
-    if ! check_command "cmake" "CMake"; then
-        print_status "STEP" "Installing CMake..."
-        
-        if [[ $PKG_MANAGER == "apt-get" ]]; then
-            install_package "cmake" "CMake"
-        elif [[ $PKG_MANAGER == "pacman" ]]; then
-            install_package "cmake" "CMake"
-        fi
-    fi
-}
 
-# Check Python 3 (optional)
-check_python() {
-    print_status "STEP" "Checking Python 3 (optional)..."
-    
-    if check_command "python3" "Python 3"; then
-        local version=$(python3 --version 2>&1)
-        print_status "SUCCESS" "Python 3 found: $version"
-    else
-        print_status "WARNING" "Python 3 not found (optional dependency)"
-        print_status "INFO" "Python 3 is optional and not required for core functionality"
-    fi
-}
 
 # Check Ghidra installation
 check_ghidra() {
     print_status "STEP" "Checking Ghidra installation..."
     
-    # Common Ghidra installation paths
-    local ghidra_paths=(
-        "/opt/ghidra/support/analyzeHeadless"
-        "/usr/local/ghidra/support/analyzeHeadless"
-        "/Applications/ghidra/support/analyzeHeadless"
-        "$HOME/ghidra/support/analyzeHeadless"
-        "$HOME/ghidra_*/support/analyzeHeadless"
-    )
-    
     local ghidra_found=false
+    local found_path=""
     
-    for path in "${ghidra_paths[@]}"; do
-        if [[ -f "$path" && -x "$path" ]]; then
-            print_status "SUCCESS" "Ghidra found: $path"
-            ghidra_found=true
-            ((INSTALLED_DEPENDENCIES++))
-            break
+    for path in "${GHIDRA_PATHS[@]}"; do
+        # Handle wildcards in paths
+        if [[ "$path" == *"*"* ]]; then
+            for expanded_path in $path; do
+                if [[ -f "$expanded_path" && -x "$expanded_path" ]]; then
+                    print_status "SUCCESS" "Ghidra found: $expanded_path"
+                    ghidra_found=true
+                    found_path="$expanded_path"
+                    ((INSTALLED_DEPENDENCIES++))
+                    break 2
+                fi
+            done
+        else
+            if [[ -f "$path" && -x "$path" ]]; then
+                print_status "SUCCESS" "Ghidra found: $path"
+                ghidra_found=true
+                found_path="$path"
+                ((INSTALLED_DEPENDENCIES++))
+                break
+            fi
         fi
     done
     
     if [[ $ghidra_found == false ]]; then
-        print_status "WARNING" "Ghidra not found"
+        print_status "WARNING" "Ghidra not found in any of the expected locations:"
+        for path in "${GHIDRA_PATHS[@]}"; do
+            print_status "INFO" "  - $path"
+        done
         print_status "INFO" "Ghidra is required for binary analysis functionality"
         print_status "INFO" "Download from: https://ghidra-sre.org/"
         print_status "INFO" "Installation instructions:"
         print_status "INFO" "  1. Download Ghidra from https://ghidra-sre.org/"
         print_status "INFO" "  2. Extract to /opt/ghidra or /usr/local/ghidra"
-        print_status "INFO" "  3. Ensure analyzeHeadless script is executable"
+        print_status "INFO" "  3. Ensure analyzeHeadless script is executable: chmod +x /opt/ghidra/support/analyzeHeadless"
         print_status "INFO" "  4. Run this script again to verify installation"
         ((MISSING_DEPENDENCIES++))
     fi
@@ -387,14 +435,28 @@ check_chromadb() {
         else
             print_status "WARNING" "ChromaDB instance not found at http://localhost:8000"
             print_status "INFO" "ChromaDB is required for vector database functionality"
-            print_status "INFO" "To install ChromaDB:"
-            print_status "INFO" "  pip install chromadb"
-            print_status "INFO" "  chroma run --host localhost --port 8000"
+            print_status "INFO" ""
+            print_status "INFO" "Installation instructions:"
+            print_status "INFO" "  1. Install ChromaDB:"
+            print_status "INFO" "     pip install chromadb"
+            print_status "INFO" "  2. Start ChromaDB server:"
+            print_status "INFO" "     chroma run --host localhost --port 8000"
+            print_status "INFO" "  3. Or use Docker:"
+            print_status "INFO" "     docker run -p 8000:8000 chromadb/chroma"
+            print_status "INFO" "  4. Verify installation:"
+            print_status "INFO" "     curl http://localhost:8000/api/v1/heartbeat"
+            print_status "INFO" ""
+            print_status "INFO" "Alternative: Use ChromaDB in embedded mode (no server required)"
             ((MISSING_DEPENDENCIES++))
         fi
     else
         print_status "WARNING" "curl not available, cannot check ChromaDB"
-        print_status "INFO" "Install curl to enable ChromaDB checking"
+        print_status "INFO" "Install curl to enable ChromaDB checking:"
+        if [[ $PKG_MANAGER == "apt-get" ]]; then
+            print_status "INFO" "  sudo apt-get install curl"
+        elif [[ $PKG_MANAGER == "pacman" ]]; then
+            print_status "INFO" "  sudo pacman -S curl"
+        fi
         ((MISSING_DEPENDENCIES++))
     fi
 }
@@ -426,6 +488,67 @@ check_project_files() {
     fi
     
     return 0
+}
+
+# Check JNI libraries and provide build instructions
+check_jni_libraries() {
+    print_status "STEP" "Checking JNI libraries..."
+    
+    local found_libs=0
+    local missing_libs=()
+    
+    for lib in "${JNI_LIBRARIES[@]}"; do
+        if [[ -f "$lib" ]]; then
+            print_status "SUCCESS" "Found JNI library: $lib"
+            ((found_libs++))
+        else
+            missing_libs+=("$lib")
+        fi
+    done
+    
+    if [[ $found_libs -eq 0 ]]; then
+        print_status "WARNING" "No JNI libraries found. These need to be built:"
+        print_status "INFO" "Required JNI libraries:"
+        print_status "INFO" "  - libllama.so (Linux)"
+        print_status "INFO" "  - libllama.dylib (macOS)"
+        print_status "INFO" "  - llama.dll (Windows)"
+        print_status "INFO" ""
+        print_status "INFO" "Build instructions for libllama.so:"
+        print_status "INFO" "  1. Ensure llama.cpp is installed:"
+        print_status "INFO" "     git clone https://github.com/ggerganov/llama.cpp.git"
+        print_status "INFO" "     cd llama.cpp && make"
+        print_status "INFO" "  2. Compile JNI wrapper:"
+        print_status "INFO" "     g++ -fPIC -shared \\"
+        print_status "INFO" "       -I\$JAVA_HOME/include \\"
+        print_status "INFO" "       -I\$JAVA_HOME/include/linux \\"
+        print_status "INFO" "       -I./llama.cpp \\"
+        print_status "INFO" "       -L./llama.cpp -lllama \\"
+        print_status "INFO" "       -o bin/libllama.so \\"
+        print_status "INFO" "       main/llama_jni.cpp"
+        print_status "INFO" "  3. Set library path:"
+        print_status "INFO" "     export LD_LIBRARY_PATH=\$(pwd)/bin:\$LD_LIBRARY_PATH"
+        print_status "INFO" ""
+        print_status "INFO" "For macOS (libllama.dylib):"
+        print_status "INFO" "     g++ -fPIC -shared \\"
+        print_status "INFO" "       -I\$JAVA_HOME/include \\"
+        print_status "INFO" "       -I\$JAVA_HOME/include/darwin \\"
+        print_status "INFO" "       -I./llama.cpp \\"
+        print_status "INFO" "       -L./llama.cpp -lllama \\"
+        print_status "INFO" "       -o bin/libllama.dylib \\"
+        print_status "INFO" "       main/llama_jni.cpp"
+        print_status "INFO" ""
+        print_status "INFO" "For Windows (llama.dll):"
+        print_status "INFO" "     g++ -shared \\"
+        print_status "INFO" "       -I\"%JAVA_HOME%\\include\" \\"
+        print_status "INFO" "       -I\"%JAVA_HOME%\\include\\win32\" \\"
+        print_status "INFO" "       -I./llama.cpp \\"
+        print_status "INFO" "       -L./llama.cpp -lllama \\"
+        print_status "INFO" "       -o bin/llama.dll \\"
+        print_status "INFO" "       main/llama_jni.cpp"
+        ((MISSING_DEPENDENCIES++))
+    else
+        print_status "SUCCESS" "Found $found_libs JNI library(ies)"
+    fi
 }
 
 # Check binary/library files (may not exist yet)
@@ -499,17 +622,24 @@ print_usage_instructions() {
     print_status "HEADER" "╔══════════════════════════════════════════════════════════════╗"
     print_status "HEADER" "║                        Usage Instructions                       ║"
     print_status "HEADER" "╠══════════════════════════════════════════════════════════════╣"
-    print_status "HEADER" "║  To start the chatbot:                                        ║"
+    print_status "HEADER" "║  QUICK START:                                                 ║"
     print_status "HEADER" "║    ./run_chatbot.sh                                           ║"
     print_status "HEADER" "║                                                               ║"
-    print_status "HEADER" "║  To build the project:                                        ║"
-    print_status "HEADER" "║    1. Compile llama_jni.cpp: g++ -fPIC -shared -lllama -o bin/libllama.so main/llama_jni.cpp ║"
-    print_status "HEADER" "║    2. Build Java project: javac -d bin main/*.java            ║"
+    print_status "HEADER" "║  BUILD PROJECT:                                               ║"
+    print_status "HEADER" "║    1. Build JNI library (see instructions above)              ║"
+    print_status "HEADER" "║    2. Compile Java: javac -d bin main/*.java                  ║"
     print_status "HEADER" "║    3. Create JAR: jar cf bin/chatbot.jar -C bin .            ║"
     print_status "HEADER" "║                                                               ║"
-    print_status "HEADER" "║  To configure the chatbot:                                    ║"
-    print_status "HEADER" "║    Edit application.properties for settings                  ║"
-    print_status "HEADER" "║    Edit .env for environment variables                       ║"
+    print_status "HEADER" "║  CONFIGURATION:                                               ║"
+    print_status "HEADER" "║    • Edit application.properties for settings                ║"
+    print_status "HEADER" "║    • Edit .env for environment variables                     ║"
+    print_status "HEADER" "║    • Set JAVA_HOME if not detected automatically             ║"
+    print_status "HEADER" "║                                                               ║"
+    print_status "HEADER" "║  TROUBLESHOOTING:                                             ║"
+    print_status "HEADER" "║    • Check logs in logs/ directory                           ║"
+    print_status "HEADER" "║    • Verify all dependencies are installed                   ║"
+    print_status "HEADER" "║    • Ensure JNI libraries are in library path               ║"
+    print_status "HEADER" "║    • Run this script again to re-check dependencies          ║"
     print_status "HEADER" "╚══════════════════════════════════════════════════════════════╝"
     echo
 }
@@ -539,25 +669,15 @@ main() {
     # Check and install dependencies
     print_status "STEP" "Checking and installing dependencies..."
     
-    # Java
-    TOTAL_DEPENDENCIES=$((TOTAL_DEPENDENCIES + 1))
+    # System commands (java, javac, gcc, g++, cmake, make, python3)
+    TOTAL_DEPENDENCIES=$((TOTAL_DEPENDENCIES + 7))
+    check_system_commands
+    
+    # Java version check (after installation)
     if ! check_java_version; then
-        if ! install_java; then
-            print_status "ERROR" "Java installation failed. Please install Java 17+ manually."
-            ((FAILED_INSTALLATIONS++))
-        fi
+        print_status "ERROR" "Java 17+ is required but not available after installation."
+        ((FAILED_INSTALLATIONS++))
     fi
-    
-    # Compiler toolchain
-    TOTAL_DEPENDENCIES=$((TOTAL_DEPENDENCIES + 1))
-    check_compiler
-    
-    # CMake
-    TOTAL_DEPENDENCIES=$((TOTAL_DEPENDENCIES + 1))
-    check_cmake
-    
-    # Python 3 (optional)
-    check_python
     
     # Ghidra
     TOTAL_DEPENDENCIES=$((TOTAL_DEPENDENCIES + 1))
@@ -566,6 +686,10 @@ main() {
     # ChromaDB
     TOTAL_DEPENDENCIES=$((TOTAL_DEPENDENCIES + 1))
     check_chromadb
+    
+    # JNI Libraries
+    TOTAL_DEPENDENCIES=$((TOTAL_DEPENDENCIES + 1))
+    check_jni_libraries
     
     # Project files
     TOTAL_DEPENDENCIES=$((TOTAL_DEPENDENCIES + 1))
