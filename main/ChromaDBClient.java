@@ -13,18 +13,22 @@ public class ChromaDBClient {
 
     /**
      * Create a ChromaDBClient using configuration from application.properties or environment variable.
-     * Order of precedence: env VECTORDb_ENDPOINT > application.properties vectordb.endpoint > default.
+     * Configuration precedence (highest to lowest):
+     * 1. Environment variable VECTORDb_ENDPOINT
+     * 2. application.properties file (vectordb.endpoint key)
+     * 3. Default: http://localhost:8000
      *
      * To set via environment: export VECTORDb_ENDPOINT=http://host:port
      * To set via properties: vectordb.endpoint=http://host:port in application.properties
      */
     public static ChromaDBClient fromConfig() {
-        // 1. Check environment variable
+        // Priority 1: Environment variable (highest precedence)
         String env = System.getenv("VECTORDb_ENDPOINT");
         if (env != null && !env.isEmpty()) {
             return new ChromaDBClient(env);
         }
-        // 2. Check application.properties
+        
+        // Priority 2: application.properties file
         try (InputStream in = new FileInputStream("application.properties")) {
             Properties props = new Properties();
             props.load(in);
@@ -32,8 +36,11 @@ public class ChromaDBClient {
             if (prop != null && !prop.isEmpty()) {
                 return new ChromaDBClient(prop);
             }
-        } catch (IOException ignored) {}
-        // 3. Default
+        } catch (IOException ignored) {
+            // Properties file not found or unreadable - continue to default
+        }
+        
+        // Priority 3: Default fallback
         return new ChromaDBClient("http://localhost:8000");
     }
 
