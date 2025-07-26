@@ -2,13 +2,40 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import com.google.gson.Gson;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Properties;
+import com.google.gson.Gson;
 
 public class ChromaDBClient {
     private final String baseUrl;
     private final Gson gson = new Gson();
+
+    /**
+     * Create a ChromaDBClient using configuration from application.properties or environment variable.
+     * Order of precedence: env VECTORDb_ENDPOINT > application.properties vectordb.endpoint > default.
+     *
+     * To set via environment: export VECTORDb_ENDPOINT=http://host:port
+     * To set via properties: vectordb.endpoint=http://host:port in application.properties
+     */
+    public static ChromaDBClient fromConfig() {
+        // 1. Check environment variable
+        String env = System.getenv("VECTORDb_ENDPOINT");
+        if (env != null && !env.isEmpty()) {
+            return new ChromaDBClient(env);
+        }
+        // 2. Check application.properties
+        try (InputStream in = new FileInputStream("application.properties")) {
+            Properties props = new Properties();
+            props.load(in);
+            String prop = props.getProperty("vectordb.endpoint");
+            if (prop != null && !prop.isEmpty()) {
+                return new ChromaDBClient(prop);
+            }
+        } catch (IOException ignored) {}
+        // 3. Default
+        return new ChromaDBClient("http://localhost:8000");
+    }
 
     public ChromaDBClient(String baseUrl) {
         this.baseUrl = baseUrl;
@@ -70,7 +97,7 @@ public class ChromaDBClient {
         }
         conn.disconnect();
         if (code < 200 || code >= 300) {
-            String msg = String.format("HTTP error %d: %s", code, response.toString());
+            String msg = String.format("HTTP %s %s error %d: %s", method, endpoint, code, response.toString());
             System.err.println("[ChromaDBClient] " + msg);
             throw new IOException(msg);
         }
