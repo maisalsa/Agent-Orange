@@ -97,6 +97,7 @@ REQUIRED_COMMANDS=(
     "cmake"
     "make"
     "python3"
+    "lsof"
 )
 
 # JNI library files to check
@@ -286,6 +287,9 @@ check_system_commands() {
                     "python3")
                         packages+=("python3")
                         ;;
+                    "lsof")
+                        packages+=("lsof")
+                        ;;
                 esac
             done
             
@@ -311,6 +315,9 @@ check_system_commands() {
                         ;;
                     "python3")
                         packages+=("python")
+                        ;;
+                    "lsof")
+                        packages+=("lsof")
                         ;;
                 esac
             done
@@ -423,41 +430,219 @@ check_ghidra() {
     fi
 }
 
-# Check ChromaDB (local instance)
+# Check and install ChromaDB
 check_chromadb() {
-    print_status "STEP" "Checking ChromaDB (local instance)..."
+    print_status "STEP" "Checking ChromaDB installation and setup..."
     
-    # Try to connect to local ChromaDB instance
-    if command -v curl >/dev/null 2>&1; then
-        if curl -s http://localhost:8000/api/v1/heartbeat >/dev/null 2>&1; then
-            print_status "SUCCESS" "ChromaDB instance found at http://localhost:8000"
-            ((INSTALLED_DEPENDENCIES++))
+    # First, ensure curl is available for API testing
+    if ! command -v curl >/dev/null 2>&1; then
+        print_status "STEP" "Installing curl for ChromaDB API testing..."
+        if [[ $PKG_MANAGER == "apt-get" ]]; then
+            install_package "curl" "curl"
+        elif [[ $PKG_MANAGER == "pacman" ]]; then
+            install_package "curl" "curl"
+        fi
+    fi
+    
+    # Check if ChromaDB is installed
+    local chromadb_installed=false
+    if command -v chroma >/dev/null 2>&1; then
+        print_status "SUCCESS" "ChromaDB CLI found: $(command -v chroma)"
+        chromadb_installed=true
+    elif python3 -c "import chromadb" 2>/dev/null; then
+        print_status "SUCCESS" "ChromaDB Python package found"
+        chromadb_installed=true
+    else
+        print_status "WARNING" "ChromaDB not found, installing..."
+        
+        # Install ChromaDB
+        if command -v pip3 >/dev/null 2>&1; then
+            print_status "STEP" "Installing ChromaDB via pip3..."
+            if pip3 install chromadb --user; then
+                print_status "SUCCESS" "ChromaDB installed successfully"
+                chromadb_installed=true
+                ((INSTALLED_DEPENDENCIES++))
+            else
+                print_status "ERROR" "Failed to install ChromaDB via pip3"
+                ((FAILED_INSTALLATIONS++))
+                return 1
+            fi
         else
-            print_status "WARNING" "ChromaDB instance not found at http://localhost:8000"
-            print_status "INFO" "ChromaDB is required for vector database functionality"
-            print_status "INFO" ""
-            print_status "INFO" "Installation instructions:"
-            print_status "INFO" "  1. Install ChromaDB:"
-            print_status "INFO" "     pip install chromadb"
-            print_status "INFO" "  2. Start ChromaDB server:"
-            print_status "INFO" "     chroma run --host localhost --port 8000"
-            print_status "INFO" "  3. Or use Docker:"
-            print_status "INFO" "     docker run -p 8000:8000 chromadb/chroma"
-            print_status "INFO" "  4. Verify installation:"
-            print_status "INFO" "     curl http://localhost:8000/api/v1/heartbeat"
-            print_status "INFO" ""
-            print_status "INFO" "Alternative: Use ChromaDB in embedded mode (no server required)"
-            ((MISSING_DEPENDENCIES++))
+            print_status "ERROR" "pip3 not found, cannot install ChromaDB"
+            print_status "INFO" "Please install pip3 first:"
+            if [[ $PKG_MANAGER == "apt-get" ]]; then
+                print_status "INFO" "  sudo apt-get install python3-pip"
+            elif [[ $PKG_MANAGER == "pacman" ]]; then
+                print_status "INFO" "  sudo pacman -S python-pip"
+            fi
+            ((FAILED_INSTALLATIONS++))
+            return 1
+        fi
+    fi
+    
+    # Check if ChromaDB server is running
+    local server_running=false
+    if command -v curl >/dev/null 2>&1; then
+        print_status "STEP" "Checking ChromaDB server status..."
+        
+        # Try to connect to ChromaDB server
+        if curl -s --connect-timeout 5 http://localhost:8000/api/v1/heartbeat >/dev/null 2>&1; then
+            print_status "SUCCESS" "ChromaDB server is running at http://localhost:8000"
+            server_running=true
+        else
+            print_status "WARNING" "ChromaDB server not running, attempting to start..."
+            
+            # Try to start ChromaDB server
+            if command -v chroma >/dev/null 2>&1; then
+                print_status "STEP" "Starting ChromaDB server in background..."
+                
+                # Check if port 8000 is already in use
+                if lsof -i :8000 >/dev/null 2>&1; then
+                    print_status "WARNING" "Port 8000 is already in use by another process"
+                    print_status "INFO" "Please stop the process using port 8000 or configure ChromaDB to use a different port"
+                    ((MISSING_DEPENDENCIES++))
+                    return 1
+                fi
+                
+                # Start ChromaDB server in background
+                nohup chroma run --host localhost --port 8000 > logs/chromadb.log 2>&1 &
+                local chromadb_pid=$!
+                
+                # Wait for server to start
+                print_status "STEP" "Waiting for ChromaDB server to start..."
+                local attempts=0
+                local max_attempts=30
+                
+                while [[ $attempts -lt $max_attempts ]]; do
+                    if curl -s --connect-timeout 2 http://localhost:8000/api/v1/heartbeat >/dev/null 2>&1; then
+                        print_status "SUCCESS" "ChromaDB server started successfully (PID: $chromadb_pid)"
+                        server_running=true
+                        break
+                    fi
+                    
+                    sleep 1
+                    ((attempts++))
+                    
+                    if [[ $((attempts % 5)) -eq 0 ]]; then
+                        print_status "INFO" "Still waiting for ChromaDB server... (attempt $attempts/$max_attempts)"
+                    fi
+                done
+                
+                if [[ $server_running == false ]]; then
+                    print_status "ERROR" "Failed to start ChromaDB server after $max_attempts attempts"
+                    print_status "INFO" "Check logs/chromadb.log for details"
+                    kill $chromadb_pid 2>/dev/null || true
+                    ((FAILED_INSTALLATIONS++))
+                    return 1
+                fi
+            else
+                print_status "ERROR" "ChromaDB CLI not found, cannot start server"
+                print_status "INFO" "Please install ChromaDB CLI: pip3 install chromadb"
+                ((FAILED_INSTALLATIONS++))
+                return 1
+            fi
+        fi
+    fi
+    
+    # Detect API version and validate compatibility
+    if [[ $server_running == true ]]; then
+        print_status "STEP" "Detecting ChromaDB API version..."
+        
+        # Try to get API version
+        local api_response=""
+        if command -v curl >/dev/null 2>&1; then
+            api_response=$(curl -s --connect-timeout 5 http://localhost:8000/api/v1/heartbeat 2>/dev/null)
+        fi
+        
+        if [[ -n "$api_response" ]]; then
+            # Parse version from response
+            local version=$(echo "$api_response" | grep -o '"version":"[^"]*"' | cut -d'"' -f4)
+            
+            if [[ -n "$version" ]]; then
+                print_status "SUCCESS" "ChromaDB API version detected: $version"
+                
+                # Check if version is v2 or later
+                local major_version=$(echo "$version" | cut -d'.' -f1 | sed 's/v//')
+                if [[ "$major_version" -ge 2 ]]; then
+                    print_status "SUCCESS" "ChromaDB version $version is compatible (v2+)"
+                    print_status "INFO" "Full API URL: http://localhost:8000/api/v1"
+                    print_status "INFO" "Server logs: logs/chromadb.log"
+                    ((INSTALLED_DEPENDENCIES++))
+                else
+                    print_status "ERROR" "ChromaDB version $version is not supported (requires v2+)"
+                    print_status "INFO" "Please upgrade ChromaDB to version 2 or later:"
+                    print_status "INFO" "  pip3 install --upgrade chromadb"
+                    ((FAILED_INSTALLATIONS++))
+                    return 1
+                fi
+            else
+                print_status "WARNING" "Could not detect ChromaDB API version"
+                print_status "INFO" "Assuming compatibility and proceeding..."
+                print_status "INFO" "Full API URL: http://localhost:8000/api/v1"
+                ((INSTALLED_DEPENDENCIES++))
+            fi
+        else
+            print_status "ERROR" "Could not connect to ChromaDB API"
+            print_status "INFO" "Server may not be responding properly"
+            ((FAILED_INSTALLATIONS++))
+            return 1
         fi
     else
-        print_status "WARNING" "curl not available, cannot check ChromaDB"
-        print_status "INFO" "Install curl to enable ChromaDB checking:"
-        if [[ $PKG_MANAGER == "apt-get" ]]; then
-            print_status "INFO" "  sudo apt-get install curl"
-        elif [[ $PKG_MANAGER == "pacman" ]]; then
-            print_status "INFO" "  sudo pacman -S curl"
-        fi
+        print_status "ERROR" "ChromaDB server is not running"
         ((MISSING_DEPENDENCIES++))
+        return 1
+    fi
+    
+    # Create ChromaDB configuration file
+    if [[ ! -f "chromadb_config.json" ]]; then
+        cat > chromadb_config.json << EOF
+{
+    "chroma_api_impl": "rest",
+    "chroma_server_host": "localhost",
+    "chroma_server_http_port": 8000,
+    "chroma_server_ssl_enabled": false,
+    "chroma_server_ssl_cert_file": "",
+    "chroma_server_ssl_key_file": "",
+    "chroma_server_ssl_ca_cert_file": "",
+    "chroma_server_ssl_verify": false
+}
+EOF
+        print_status "SUCCESS" "Created ChromaDB configuration file: chromadb_config.json"
+    fi
+    
+    print_status "SUCCESS" "ChromaDB setup completed successfully"
+}
+
+# Stop ChromaDB server (utility function)
+stop_chromadb() {
+    print_status "STEP" "Stopping ChromaDB server..."
+    
+    # Find ChromaDB processes
+    local chromadb_pids=$(pgrep -f "chroma run" 2>/dev/null || true)
+    
+    if [[ -n "$chromadb_pids" ]]; then
+        print_status "INFO" "Found ChromaDB processes: $chromadb_pids"
+        for pid in $chromadb_pids; do
+            if kill $pid 2>/dev/null; then
+                print_status "SUCCESS" "Stopped ChromaDB process (PID: $pid)"
+            else
+                print_status "WARNING" "Failed to stop ChromaDB process (PID: $pid)"
+            fi
+        done
+        
+        # Wait a moment for processes to stop
+        sleep 2
+        
+        # Check if processes are still running
+        local remaining_pids=$(pgrep -f "chroma run" 2>/dev/null || true)
+        if [[ -n "$remaining_pids" ]]; then
+            print_status "WARNING" "Some ChromaDB processes are still running: $remaining_pids"
+            print_status "INFO" "You may need to stop them manually: kill -9 $remaining_pids"
+        else
+            print_status "SUCCESS" "All ChromaDB processes stopped"
+        fi
+    else
+        print_status "INFO" "No ChromaDB processes found"
     fi
 }
 
@@ -669,8 +854,8 @@ main() {
     # Check and install dependencies
     print_status "STEP" "Checking and installing dependencies..."
     
-    # System commands (java, javac, gcc, g++, cmake, make, python3)
-    TOTAL_DEPENDENCIES=$((TOTAL_DEPENDENCIES + 7))
+    # System commands (java, javac, gcc, g++, cmake, make, python3, lsof)
+    TOTAL_DEPENDENCIES=$((TOTAL_DEPENDENCIES + 8))
     check_system_commands
     
     # Java version check (after installation)
