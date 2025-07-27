@@ -1,3 +1,5 @@
+package com.example;
+
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -84,18 +86,32 @@ public class ChromaDBClient {
     private String sendRequest(String endpoint, String method, String body) throws IOException {
         URL url = new URL(endpoint);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        
+        // Set connection timeouts to prevent hanging
+        conn.setConnectTimeout(10000); // 10 seconds
+        conn.setReadTimeout(30000);    // 30 seconds
+        
         conn.setRequestMethod(method);
         conn.setRequestProperty("Content-Type", "application/json");
+        conn.setRequestProperty("User-Agent", "Agent-Orange/1.0");
         conn.setDoInput(true);
+        
         if (body != null) {
             conn.setDoOutput(true);
             try (OutputStream os = conn.getOutputStream()) {
                 os.write(body.getBytes(StandardCharsets.UTF_8));
             }
         }
+        
         int code = conn.getResponseCode();
         StringBuilder response = new StringBuilder();
-        try (InputStream is = (code >= 200 && code < 300) ? conn.getInputStream() : conn.getErrorStream();
+        
+        // Handle different response codes
+        if (code < 200 || code >= 300) {
+            throw new IOException("HTTP " + code + " error from ChromaDB: " + conn.getResponseMessage());
+        }
+        
+        try (InputStream is = conn.getInputStream();
              BufferedReader reader = new BufferedReader(new InputStreamReader(is))) {
             String line;
             while ((line = reader.readLine()) != null) {

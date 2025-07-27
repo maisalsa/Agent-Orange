@@ -1,3 +1,5 @@
+package com.example;
+
 import java.util.Scanner;
 import java.util.List;
 import java.util.ArrayList;
@@ -6,6 +8,8 @@ import java.util.logging.Level;
 import java.util.logging.FileHandler;
 import java.util.logging.SimpleFormatter;
 import java.io.IOException;
+import java.io.File;
+import java.util.Properties;
 
 /**
  * Main - Offline Pentesting Chatbot CLI
@@ -108,6 +112,9 @@ public class Main {
     private static MCPOrchestrator initializeModules() throws Exception {
         logger.info("Initializing modules...");
         
+        // Validate configuration
+        validateConfiguration();
+        
         try {
             // Initialize LLM
             LlamaJNI llama = new LlamaJNI();
@@ -141,6 +148,46 @@ public class Main {
             logger.log(Level.SEVERE, "Failed to initialize modules", e);
             throw new Exception("Module initialization failed: " + e.getMessage(), e);
         }
+    }
+    
+    /**
+     * Validate application configuration.
+     */
+    private static void validateConfiguration() {
+        logger.info("Validating configuration...");
+        
+        // Check required directories
+        String[] requiredDirs = {"bin", "logs", "models"};
+        for (String dir : requiredDirs) {
+            if (!new File(dir).exists()) {
+                logger.warning("Required directory not found: " + dir + " (will be created)");
+                new File(dir).mkdirs();
+            }
+        }
+        
+        // Validate configuration properties
+        String ghidraPath = getConfigProperty("ghidra.headless.path", "");
+        if (!ghidraPath.isEmpty() && !new File(ghidraPath).exists()) {
+            logger.warning("Ghidra path not found: " + ghidraPath);
+        }
+        
+        logger.info("Configuration validation completed");
+    }
+    
+    /**
+     * Get configuration property with fallback to default value.
+     */
+    private static String getConfigProperty(String key, String defaultValue) {
+        try {
+            Properties props = new Properties();
+            try (java.io.FileInputStream fis = new java.io.FileInputStream("application.properties")) {
+                props.load(fis);
+                return props.getProperty(key, defaultValue);
+            }
+        } catch (Exception e) {
+            logger.warning("Could not load application.properties: " + e.getMessage());
+        }
+        return defaultValue;
     }
 
     /**

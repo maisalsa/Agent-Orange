@@ -1,3 +1,5 @@
+package com.example;
+
 import java.util.regex.Pattern;
 import java.util.regex.Matcher;
 
@@ -65,6 +67,11 @@ public class MCPOrchestrator {
         this.embeddingClient = embeddingClient;
         this.chromaDBClient = chromaDBClient;
         this.ghidraBridge = ghidraBridge;
+        
+        // Validate that at least one module is available
+        if (llama == null && embeddingClient == null && chromaDBClient == null && ghidraBridge == null) {
+            throw new IllegalArgumentException("At least one module must be provided");
+        }
         
         // Log module availability
         logModuleStatus();

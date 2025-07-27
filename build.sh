@@ -91,8 +91,26 @@ create_directories() {
     mkdir -p bin
     mkdir -p logs
     mkdir -p tmp
+    mkdir -p lib
     
     print_status "SUCCESS" "Directories created"
+}
+
+# Check for external dependencies
+check_dependencies() {
+    print_status "INFO" "Checking external dependencies..."
+    
+    # Check if Gson is available (required for ChromaDBClient)
+    if ! javac -cp ".:lib/*" -d bin main/ChromaDBClient.java 2>/dev/null; then
+        print_status "WARNING" "Gson dependency not found. ChromaDBClient may not compile."
+        print_status "INFO" "Download Gson: wget https://repo1.maven.org/maven2/com/google/code/gson/gson/2.10.1/gson-2.10.1.jar -O lib/gson-2.10.1.jar"
+    fi
+    
+    # Check if JUnit is available (required for tests)
+    if ! javac -cp ".:lib/*" -d bin main/TestMain.java 2>/dev/null; then
+        print_status "WARNING" "JUnit dependency not found. Tests may not compile."
+        print_status "INFO" "Download JUnit: wget https://repo1.maven.org/maven2/junit/junit/4.13.2/junit-4.13.2.jar -O lib/junit-4.13.2.jar"
+    fi
 }
 
 # Compile Java source files
@@ -107,8 +125,8 @@ compile_java() {
         exit 1
     fi
     
-    # Compile with error reporting
-    if javac -d bin -cp ".:bin" $java_files 2>logs/compile_errors.log; then
+    # Compile with error reporting and dependencies
+    if javac -d bin -cp ".:bin:lib/*" $java_files 2>logs/compile_errors.log; then
         print_status "SUCCESS" "Java compilation completed"
         rm -f logs/compile_errors.log
     else
@@ -144,7 +162,7 @@ create_executable_jar() {
     # Create manifest file
     cat > tmp/manifest.txt << EOF
 Manifest-Version: 1.0
-Main-Class: Main
+Main-Class: com.example.Main
 Class-Path: .
 
 EOF
@@ -188,6 +206,9 @@ main() {
     
     # Create directories
     create_directories
+    
+    # Check dependencies
+    check_dependencies
     
     # Compile Java
     compile_java

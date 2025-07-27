@@ -1,3 +1,5 @@
+package com.example;
+
 /**
  * LlamaJNI - Java Native Interface for llama.cpp
  * 
@@ -245,6 +247,11 @@ public class LlamaJNI {
         
         if (prompt.trim().isEmpty()) {
             return "[ERROR] Empty prompt";
+        }
+        
+        // Validate input length (prevent extremely long prompts)
+        if (prompt.length() > 8192) {
+            return "[ERROR] Prompt too long (max 8192 characters)";
         }
         
         try {

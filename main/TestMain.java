@@ -1,3 +1,5 @@
+package com.example;
+
 // Requires JUnit 4 (e.g., junit-4.13.2.jar on classpath)
 import org.junit.Test;
 import org.junit.Before;

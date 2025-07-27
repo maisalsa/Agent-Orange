@@ -37,7 +37,7 @@ extern "C" {
  * @param prompt Java string containing the input prompt
  * @return Java string containing the LLM response or error message
  */
-JNIEXPORT jstring JNICALL Java_LlamaJNI_generateResponse(JNIEnv *, jobject, jstring);
+JNIEXPORT jstring JNICALL Java_com_example_LlamaJNI_generateResponse(JNIEnv *, jobject, jstring);
 
 #ifdef __cplusplus
 }

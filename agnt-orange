@@ -185,6 +185,12 @@ main() {
     # Find project root
     local project_root="$(find_project_root)"
     
+    if [[ ! -d "$project_root" ]]; then
+        print_status "ERROR" "Could not find project root directory"
+        print_status "INFO" "Please ensure this script is in the Agent-Orange project directory"
+        exit 1
+    fi
+    
     # Check dependencies
     check_java
     

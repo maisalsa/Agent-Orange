@@ -1,6 +1,10 @@
 #!/bin/bash
 set -e
 
+# Create necessary directories
+mkdir -p logs
+mkdir -p bin
+
 # Set LD_LIBRARY_PATH for JNI
 export LD_LIBRARY_PATH="$(pwd)/bin:$LD_LIBRARY_PATH"
 
