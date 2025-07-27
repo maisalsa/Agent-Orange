@@ -1,42 +1,48 @@
 #!/bin/bash
 
 # ============================================================================
-# Pentesting Chatbot Installation Script
+# Agent-Orange Automated Installation Script
 # ============================================================================
 #
-# This script checks for and installs all required dependencies for the
-# pentesting chatbot project. It supports Debian/Kali/Ubuntu and Arch/BlackArch
-# systems and provides clear status reporting for each dependency.
+# This script provides a comprehensive, hands-off installation for the
+# Agent-Orange pentesting chatbot across multiple operating systems.
+#
+# SUPPORTED SYSTEMS:
+# - Debian/Ubuntu/Kali (apt)
+# - Arch/BlackArch (pacman)
+# - Fedora/RHEL/CentOS (dnf/yum)
+# - macOS (Homebrew)
+# - Alpine Linux (apk)
 #
 # FEATURES:
-# - Comprehensive dependency checking
-# - Automatic installation via package managers
-# - Clear status reporting for each component
-# - Idempotent operation (safe to run multiple times)
-# - Platform detection and appropriate package manager selection
-# - Helpful error messages and installation guidance
+# - Automatic OS detection and package manager selection
+# - Comprehensive dependency checking and installation
+# - Automatic Ghidra download and setup
+# - ChromaDB installation and server startup
+# - Global CLI command installation
+# - Minimal user interaction required
+# - Self-healing and error recovery
 #
 # USAGE:
 #   ./install.sh
 #
-# DEPENDENCIES CHECKED:
+# DEPENDENCIES INSTALLED:
 # - Java 17+ (OpenJDK)
-# - GCC/G++ compiler toolchain
-# - CMake build system
-# - Python 3 (optional)
-# - Ghidra headless installation
-# - ChromaDB (local instance check)
-# - Project files (.so, .jar, config files)
+# - Build tools (gcc, g++, cmake, make)
+# - Network tools (wget, curl)
+# - Python 3 and pip
+# - Ghidra (latest version)
+# - ChromaDB (with server startup)
 #
 # EXIT CODES:
 #   0 - Success (all dependencies satisfied)
 #   1 - Missing dependencies that cannot be auto-installed
-#   2 - Package manager not supported
-#   3 - Insufficient privileges
+#   2 - Unsupported operating system
+#   3 - Insufficient privileges for required operations
 #   4 - Critical error during installation
 #
 # AUTHOR: Agent-Orange Team
-# VERSION: 1.0.0
+# VERSION: 2.0.0
 # ============================================================================
 
 set -e  # Exit on any error
@@ -47,8 +53,8 @@ set -e  # Exit on any error
 
 # Script configuration
 SCRIPT_NAME="install.sh"
-SCRIPT_VERSION="1.0.0"
-PROJECT_NAME="Pentesting Chatbot"
+SCRIPT_VERSION="2.0.0"
+PROJECT_NAME="Agent-Orange"
 
 # Color codes for output
 RED='\033[0;31m'
@@ -65,29 +71,6 @@ INSTALLED_DEPENDENCIES=0
 MISSING_DEPENDENCIES=0
 FAILED_INSTALLATIONS=0
 
-# Required project files
-REQUIRED_FILES=(
-    "main/LlamaJNI.java"
-    "main/EmbeddingClient.java"
-    "main/ChromaDBClient.java"
-    "main/GhidraBridge.java"
-    "main/MCPOrchestrator.java"
-    "main/Main.java"
-    "main/llama_jni.cpp"
-    "main/ExtractFunctions.java"
-    "application.properties"
-    "install.sh"
-    "run_chatbot.sh"
-)
-
-# Expected binary/library files (may not exist yet)
-EXPECTED_BINARIES=(
-    "bin/chatbot.jar"
-    "bin/libllama.so"
-    "bin/libllama.dylib"
-    "bin/llama.dll"
-)
-
 # Required system commands
 REQUIRED_COMMANDS=(
     "java"
@@ -96,26 +79,28 @@ REQUIRED_COMMANDS=(
     "g++"
     "cmake"
     "make"
-    "python3"
-    "lsof"
+    "wget"
+    "curl"
 )
 
-# JNI library files to check
-JNI_LIBRARIES=(
-    "bin/libllama.so"
-    "bin/libllama.dylib"
-    "bin/llama.dll"
-    "libllama.so"
-    "libllama.dylib"
-    "llama.dll"
+# Required project files
+REQUIRED_FILES=(
+    "main/Main.java"
+    "main/LlamaJNI.java"
+    "main/MCPOrchestrator.java"
+    "main/EmbeddingClient.java"
+    "main/ChromaDBClient.java"
+    "main/GhidraBridge.java"
+    "main/llama_jni.cpp"
+    "agnt-orange"
+    "application.properties"
 )
 
 # Ghidra installation paths to check
 GHIDRA_PATHS=(
     "/opt/ghidra/support/analyzeHeadless"
-    "/usr/share/ghidra/support/analyzeHeadless"
     "/usr/local/ghidra/support/analyzeHeadless"
-    "/Applications/ghidra/support/analyzeHeadless"
+    "/usr/share/ghidra/support/analyzeHeadless"
     "$HOME/ghidra/support/analyzeHeadless"
     "$HOME/ghidra_*/support/analyzeHeadless"
 )
@@ -174,37 +159,10 @@ detect_terminal_capabilities() {
     fi
 }
 
-# Print simple header for narrow terminals or non-UTF-8 terminals
-print_simple_header() {
-    echo
-    print_status "HEADER" "================================================================================"
-    print_status "HEADER" "                    $PROJECT_NAME Installation"
-    print_status "HEADER" "================================================================================"
-    print_status "HEADER" "  Script: $SCRIPT_NAME v$SCRIPT_VERSION"
-    print_status "HEADER" "  Date: $(date)"
-    print_status "HEADER" "================================================================================"
-    echo
-}
-
-# Print simple footer for narrow terminals or non-UTF-8 terminals
-print_simple_footer() {
-    echo
-    print_status "HEADER" "================================================================================"
-    print_status "HEADER" "                        Installation Summary"
-    print_status "HEADER" "================================================================================"
-    print_status "HEADER" "  Total Dependencies: $TOTAL_DEPENDENCIES"
-    print_status "HEADER" "  Installed/Found: $INSTALLED_DEPENDENCIES"
-    print_status "HEADER" "  Missing: $MISSING_DEPENDENCIES"
-    print_status "HEADER" "  Failed Installations: $FAILED_INSTALLATIONS"
-    print_status "HEADER" "================================================================================"
-    echo
-}
-
 # Print colored output
 print_status() {
     local status=$1
     local message=$2
-    local color=$3
     
     case $status in
         "INFO")
@@ -226,6 +184,18 @@ print_status() {
             echo -e "${CYAN}$message${NC}"
             ;;
     esac
+}
+
+# Print simple header for narrow terminals or non-UTF-8 terminals
+print_simple_header() {
+    echo
+    print_status "HEADER" "================================================================================"
+    print_status "HEADER" "                    $PROJECT_NAME Installation"
+    print_status "HEADER" "================================================================================"
+    print_status "HEADER" "  Script: $SCRIPT_NAME v$SCRIPT_VERSION"
+    print_status "HEADER" "  Date: $(date)"
+    print_status "HEADER" "================================================================================"
+    echo
 }
 
 # Print header with project information
@@ -277,7 +247,16 @@ print_header() {
 print_footer() {
     # Use simple footer for narrow terminals or non-UTF-8 terminals
     if [[ $TERMINAL_WIDTH -lt 70 || "$TERMINAL_SUPPORTS_UTF8" != true ]]; then
-        print_simple_footer
+        echo
+        print_status "HEADER" "================================================================================"
+        print_status "HEADER" "                        Installation Summary"
+        print_status "HEADER" "================================================================================"
+        print_status "HEADER" "  Total Dependencies: $TOTAL_DEPENDENCIES"
+        print_status "HEADER" "  Installed/Found: $INSTALLED_DEPENDENCIES"
+        print_status "HEADER" "  Missing: $MISSING_DEPENDENCIES"
+        print_status "HEADER" "  Failed Installations: $FAILED_INSTALLATIONS"
+        print_status "HEADER" "================================================================================"
+        echo
         return
     fi
     
@@ -320,56 +299,113 @@ print_footer() {
 # Check if running as root
 check_privileges() {
     if [[ $EUID -eq 0 ]]; then
-        print_status "WARNING" "Running as root. This is not recommended for security reasons."
-        read -p "Continue anyway? (y/N): " -n 1 -r
-        echo
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            print_status "ERROR" "Installation aborted by user."
-            exit 1
-        fi
+        print_status "INFO" "Running as root - will install system-wide"
+        IS_ROOT=true
+    else
+        print_status "INFO" "Running as regular user - will install to user directories"
+        IS_ROOT=false
     fi
 }
 
 # Detect operating system and package manager
 detect_system() {
-    print_status "STEP" "Detecting system and package manager..."
+    print_status "STEP" "Detecting operating system and package manager..."
     
+    # Initialize variables
+    OS=""
+    OS_VERSION=""
+    PKG_MANAGER=""
+    PKG_INSTALL=""
+    PKG_UPDATE=""
+    PKG_SEARCH=""
+    
+    # Detect OS
     if [[ -f /etc/os-release ]]; then
         . /etc/os-release
         OS=$NAME
-        VER=$VERSION_ID
+        OS_VERSION=$VERSION_ID
+    elif [[ "$OSTYPE" == "darwin"* ]]; then
+        OS="macOS"
+        OS_VERSION=$(sw_vers -productVersion)
     else
         print_status "ERROR" "Could not detect operating system"
         exit 2
     fi
     
-    # Detect package manager
-    if command -v apt-get >/dev/null 2>&1; then
-        PKG_MANAGER="apt-get"
-        PKG_INSTALL="apt-get install -y"
-        PKG_UPDATE="apt-get update"
-        print_status "INFO" "Detected Debian/Ubuntu system with apt-get"
-    elif command -v pacman >/dev/null 2>&1; then
-        PKG_MANAGER="pacman"
-        PKG_INSTALL="pacman -S --noconfirm"
-        PKG_UPDATE="pacman -Sy"
-        print_status "INFO" "Detected Arch/BlackArch system with pacman"
-    else
-        print_status "ERROR" "Unsupported package manager. Only apt-get and pacman are supported."
-        exit 2
-    fi
+    # Detect package manager based on OS
+    case "$OS" in
+        *"Ubuntu"*|*"Debian"*|*"Kali"*|*"Linux Mint"*)
+            PKG_MANAGER="apt"
+            PKG_INSTALL="apt-get install -y"
+            PKG_UPDATE="apt-get update"
+            PKG_SEARCH="apt-cache search"
+            print_status "INFO" "Detected Debian-based system with apt"
+            ;;
+        *"Arch"*|*"BlackArch"*|*"Manjaro"*)
+            PKG_MANAGER="pacman"
+            PKG_INSTALL="pacman -S --noconfirm"
+            PKG_UPDATE="pacman -Sy"
+            PKG_SEARCH="pacman -Ss"
+            print_status "INFO" "Detected Arch-based system with pacman"
+            ;;
+        *"Fedora"*|*"Red Hat"*|*"CentOS"*|*"Rocky"*|*"AlmaLinux"*)
+            if command -v dnf >/dev/null 2>&1; then
+                PKG_MANAGER="dnf"
+                PKG_INSTALL="dnf install -y"
+                PKG_UPDATE="dnf update -y"
+                PKG_SEARCH="dnf search"
+            else
+                PKG_MANAGER="yum"
+                PKG_INSTALL="yum install -y"
+                PKG_UPDATE="yum update -y"
+                PKG_SEARCH="yum search"
+            fi
+            print_status "INFO" "Detected RHEL-based system with $PKG_MANAGER"
+            ;;
+        *"Alpine"*)
+            PKG_MANAGER="apk"
+            PKG_INSTALL="apk add"
+            PKG_UPDATE="apk update"
+            PKG_SEARCH="apk search"
+            print_status "INFO" "Detected Alpine Linux with apk"
+            ;;
+        *"macOS"*)
+            if command -v brew >/dev/null 2>&1; then
+                PKG_MANAGER="brew"
+                PKG_INSTALL="brew install"
+                PKG_UPDATE="brew update"
+                PKG_SEARCH="brew search"
+                print_status "INFO" "Detected macOS with Homebrew"
+            else
+                print_status "ERROR" "Homebrew not found on macOS. Please install Homebrew first:"
+                print_status "INFO" "  /bin/bash -c \"\$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
+                exit 2
+            fi
+            ;;
+        *)
+            print_status "ERROR" "Unsupported operating system: $OS"
+            print_status "INFO" "Supported systems: Ubuntu/Debian/Kali, Arch/BlackArch, Fedora/RHEL, Alpine, macOS"
+            exit 2
+            ;;
+    esac
     
-    print_status "SUCCESS" "System detected: $OS $VER with $PKG_MANAGER"
+    print_status "SUCCESS" "System detected: $OS $OS_VERSION with $PKG_MANAGER"
 }
 
 # Update package manager
 update_package_manager() {
     print_status "STEP" "Updating package manager..."
     
-    if [[ $PKG_MANAGER == "apt-get" ]]; then
+    if [[ $PKG_MANAGER == "apt" ]]; then
         sudo $PKG_UPDATE
     elif [[ $PKG_MANAGER == "pacman" ]]; then
         sudo $PKG_UPDATE
+    elif [[ $PKG_MANAGER == "dnf" || $PKG_MANAGER == "yum" ]]; then
+        sudo $PKG_UPDATE
+    elif [[ $PKG_MANAGER == "apk" ]]; then
+        sudo $PKG_UPDATE
+    elif [[ $PKG_MANAGER == "brew" ]]; then
+        $PKG_UPDATE
     fi
     
     print_status "SUCCESS" "Package manager updated"
@@ -391,7 +427,46 @@ check_command() {
     fi
 }
 
-# Check all required system commands
+# Install package using detected package manager
+install_package() {
+    local package=$1
+    local name=${2:-$1}
+    
+    print_status "STEP" "Installing $name..."
+    
+    if [[ $IS_ROOT == true ]]; then
+        # Root user - install directly
+        if $PKG_INSTALL "$package"; then
+            print_status "SUCCESS" "$name installed successfully"
+            ((INSTALLED_DEPENDENCIES++))
+            ((MISSING_DEPENDENCIES--))
+            return 0
+        else
+            print_status "ERROR" "Failed to install $name"
+            ((FAILED_INSTALLATIONS++))
+            return 1
+        fi
+    else
+        # Non-root user - provide installation command
+        print_status "INFO" "Please run the following command to install $name:"
+        if [[ $PKG_MANAGER == "apt" ]]; then
+            print_status "INFO" "  sudo apt-get install $package"
+        elif [[ $PKG_MANAGER == "pacman" ]]; then
+            print_status "INFO" "  sudo pacman -S $package"
+        elif [[ $PKG_MANAGER == "dnf" ]]; then
+            print_status "INFO" "  sudo dnf install $package"
+        elif [[ $PKG_MANAGER == "yum" ]]; then
+            print_status "INFO" "  sudo yum install $package"
+        elif [[ $PKG_MANAGER == "apk" ]]; then
+            print_status "INFO" "  sudo apk add $package"
+        elif [[ $PKG_MANAGER == "brew" ]]; then
+            print_status "INFO" "  brew install $package"
+        fi
+        return 1
+    fi
+}
+
+# Check and install system commands
 check_system_commands() {
     print_status "STEP" "Checking required system commands..."
     
@@ -406,7 +481,7 @@ check_system_commands() {
     if [[ ${#missing_commands[@]} -gt 0 ]]; then
         print_status "STEP" "Installing missing system commands..."
         
-        if [[ $PKG_MANAGER == "apt-get" ]]; then
+        if [[ $PKG_MANAGER == "apt" ]]; then
             # Install build tools and development packages
             local packages=()
             for cmd in "${missing_commands[@]}"; do
@@ -423,11 +498,11 @@ check_system_commands() {
                     "make")
                         packages+=("build-essential")
                         ;;
-                    "python3")
-                        packages+=("python3")
+                    "wget")
+                        packages+=("wget")
                         ;;
-                    "lsof")
-                        packages+=("lsof")
+                    "curl")
+                        packages+=("curl")
                         ;;
                 esac
             done
@@ -452,11 +527,98 @@ check_system_commands() {
                     "cmake")
                         packages+=("cmake")
                         ;;
-                    "python3")
-                        packages+=("python")
+                    "wget")
+                        packages+=("wget")
                         ;;
-                    "lsof")
-                        packages+=("lsof")
+                    "curl")
+                        packages+=("curl")
+                        ;;
+                esac
+            done
+            
+            # Remove duplicates and install
+            packages=($(printf "%s\n" "${packages[@]}" | sort -u))
+            for pkg in "${packages[@]}"; do
+                install_package "$pkg" "$pkg"
+            done
+            
+        elif [[ $PKG_MANAGER == "dnf" || $PKG_MANAGER == "yum" ]]; then
+            # Install build tools and development packages
+            local packages=()
+            for cmd in "${missing_commands[@]}"; do
+                case $cmd in
+                    "java"|"javac")
+                        packages+=("java-17-openjdk-devel")
+                        ;;
+                    "gcc"|"g++"|"make")
+                        packages+=("gcc-c++ make")
+                        ;;
+                    "cmake")
+                        packages+=("cmake")
+                        ;;
+                    "wget")
+                        packages+=("wget")
+                        ;;
+                    "curl")
+                        packages+=("curl")
+                        ;;
+                esac
+            done
+            
+            # Remove duplicates and install
+            packages=($(printf "%s\n" "${packages[@]}" | sort -u))
+            for pkg in "${packages[@]}"; do
+                install_package "$pkg" "$pkg"
+            done
+            
+        elif [[ $PKG_MANAGER == "apk" ]]; then
+            # Install build tools and development packages
+            local packages=()
+            for cmd in "${missing_commands[@]}"; do
+                case $cmd in
+                    "java"|"javac")
+                        packages+=("openjdk17")
+                        ;;
+                    "gcc"|"g++"|"make")
+                        packages+=("build-base")
+                        ;;
+                    "cmake")
+                        packages+=("cmake")
+                        ;;
+                    "wget")
+                        packages+=("wget")
+                        ;;
+                    "curl")
+                        packages+=("curl")
+                        ;;
+                esac
+            done
+            
+            # Remove duplicates and install
+            packages=($(printf "%s\n" "${packages[@]}" | sort -u))
+            for pkg in "${packages[@]}"; do
+                install_package "$pkg" "$pkg"
+            done
+            
+        elif [[ $PKG_MANAGER == "brew" ]]; then
+            # Install build tools and development packages
+            local packages=()
+            for cmd in "${missing_commands[@]}"; do
+                case $cmd in
+                    "java"|"javac")
+                        packages+=("openjdk@17")
+                        ;;
+                    "gcc"|"g++"|"make")
+                        packages+=("gcc make")
+                        ;;
+                    "cmake")
+                        packages+=("cmake")
+                        ;;
+                    "wget")
+                        packages+=("wget")
+                        ;;
+                    "curl")
+                        packages+=("curl")
                         ;;
                 esac
             done
@@ -481,25 +643,6 @@ check_system_commands() {
     fi
 }
 
-# Install package using detected package manager
-install_package() {
-    local package=$1
-    local name=${2:-$1}
-    
-    print_status "STEP" "Installing $name..."
-    
-    if sudo $PKG_INSTALL "$package"; then
-        print_status "SUCCESS" "$name installed successfully"
-        ((INSTALLED_DEPENDENCIES++))
-        ((MISSING_DEPENDENCIES--))
-        return 0
-    else
-        print_status "ERROR" "Failed to install $name"
-        ((FAILED_INSTALLATIONS++))
-        return 1
-    fi
-}
-
 # Check Java version
 check_java_version() {
     if check_command "java" "Java"; then
@@ -519,14 +662,11 @@ check_java_version() {
     fi
 }
 
-
-
-
-
-# Check Ghidra installation
-check_ghidra() {
-    print_status "STEP" "Checking Ghidra installation..."
+# Download and install Ghidra
+install_ghidra() {
+    print_status "STEP" "Installing Ghidra..."
     
+    # Check if Ghidra is already installed
     local ghidra_found=false
     local found_path=""
     
@@ -554,34 +694,80 @@ check_ghidra() {
     done
     
     if [[ $ghidra_found == false ]]; then
-        print_status "WARNING" "Ghidra not found in any of the expected locations:"
-        for path in "${GHIDRA_PATHS[@]}"; do
-            print_status "INFO" "  - $path"
-        done
-        print_status "INFO" "Ghidra is required for binary analysis functionality"
-        print_status "INFO" "Download from: https://ghidra-sre.org/"
-        print_status "INFO" "Installation instructions:"
-        print_status "INFO" "  1. Download Ghidra from https://ghidra-sre.org/"
-        print_status "INFO" "  2. Extract to /opt/ghidra or /usr/local/ghidra"
-        print_status "INFO" "  3. Ensure analyzeHeadless script is executable: chmod +x /opt/ghidra/support/analyzeHeadless"
-        print_status "INFO" "  4. Run this script again to verify installation"
-        ((MISSING_DEPENDENCIES++))
+        print_status "STEP" "Ghidra not found, downloading and installing..."
+        
+        # Determine installation directory
+        local install_dir=""
+        if [[ $IS_ROOT == true ]]; then
+            install_dir="/opt/ghidra"
+        else
+            install_dir="$HOME/ghidra"
+        fi
+        
+        # Create installation directory
+        mkdir -p "$install_dir"
+        
+        # Get latest Ghidra version
+        local ghidra_url="https://github.com/NationalSecurityAgency/ghidra/releases/latest/download/ghidra_10.4.2_PUBLIC_20231228.zip"
+        
+        # Download Ghidra
+        print_status "INFO" "Downloading Ghidra from GitHub..."
+        if wget -q --show-progress "$ghidra_url" -O /tmp/ghidra.zip; then
+            print_status "SUCCESS" "Ghidra downloaded successfully"
+        else
+            print_status "ERROR" "Failed to download Ghidra"
+            print_status "INFO" "Please download manually from: https://ghidra-sre.org/"
+            ((FAILED_INSTALLATIONS++))
+            return 1
+        fi
+        
+        # Extract Ghidra
+        print_status "INFO" "Extracting Ghidra..."
+        if unzip -q /tmp/ghidra.zip -d /tmp/; then
+            print_status "SUCCESS" "Ghidra extracted successfully"
+        else
+            print_status "ERROR" "Failed to extract Ghidra"
+            ((FAILED_INSTALLATIONS++))
+            return 1
+        fi
+        
+        # Move to installation directory
+        local extracted_dir=$(find /tmp -maxdepth 1 -name "ghidra_*" -type d | head -n 1)
+        if [[ -n "$extracted_dir" ]]; then
+            if mv "$extracted_dir" "$install_dir"; then
+                print_status "SUCCESS" "Ghidra moved to: $install_dir"
+            else
+                print_status "ERROR" "Failed to move Ghidra to installation directory"
+                ((FAILED_INSTALLATIONS++))
+                return 1
+            fi
+        else
+            print_status "ERROR" "Could not find extracted Ghidra directory"
+            ((FAILED_INSTALLATIONS++))
+            return 1
+        fi
+        
+        # Set executable permissions
+        local analyze_headless="$install_dir/ghidra_*/support/analyzeHeadless"
+        if [[ -f "$analyze_headless" ]]; then
+            chmod +x "$analyze_headless"
+            print_status "SUCCESS" "Set executable permissions on analyzeHeadless"
+            ((INSTALLED_DEPENDENCIES++))
+        else
+            print_status "ERROR" "Could not find analyzeHeadless script"
+            ((FAILED_INSTALLATIONS++))
+            return 1
+        fi
+        
+        # Clean up
+        rm -f /tmp/ghidra.zip
+        print_status "SUCCESS" "Ghidra installation completed"
     fi
 }
 
-# Check and install ChromaDB
-check_chromadb() {
-    print_status "STEP" "Checking ChromaDB installation and setup..."
-    
-    # First, ensure curl is available for API testing
-    if ! command -v curl >/dev/null 2>&1; then
-        print_status "STEP" "Installing curl for ChromaDB API testing..."
-        if [[ $PKG_MANAGER == "apt-get" ]]; then
-            install_package "curl" "curl"
-        elif [[ $PKG_MANAGER == "pacman" ]]; then
-            install_package "curl" "curl"
-        fi
-    fi
+# Install and setup ChromaDB
+install_chromadb() {
+    print_status "STEP" "Installing and setting up ChromaDB..."
     
     # Check if ChromaDB is installed
     local chromadb_installed=false
@@ -591,12 +777,12 @@ check_chromadb() {
     elif python3 -c "import chromadb" 2>/dev/null; then
         print_status "SUCCESS" "ChromaDB Python package found"
         chromadb_installed=true
-    else
-        print_status "WARNING" "ChromaDB not found, installing..."
+    fi
+    
+    if [[ $chromadb_installed == false ]]; then
+        print_status "STEP" "Installing ChromaDB..."
         
-        # Install ChromaDB
         if command -v pip3 >/dev/null 2>&1; then
-            print_status "STEP" "Installing ChromaDB via pip3..."
             if pip3 install chromadb --user; then
                 print_status "SUCCESS" "ChromaDB installed successfully"
                 chromadb_installed=true
@@ -608,300 +794,63 @@ check_chromadb() {
             fi
         else
             print_status "ERROR" "pip3 not found, cannot install ChromaDB"
-            print_status "INFO" "Please install pip3 first:"
-            if [[ $PKG_MANAGER == "apt-get" ]]; then
-                print_status "INFO" "  sudo apt-get install python3-pip"
-            elif [[ $PKG_MANAGER == "pacman" ]]; then
-                print_status "INFO" "  sudo pacman -S python-pip"
-            fi
+            print_status "INFO" "Please install pip3 first"
             ((FAILED_INSTALLATIONS++))
             return 1
         fi
     fi
     
-    # Check if ChromaDB server is running
-    local server_running=false
-    if command -v curl >/dev/null 2>&1; then
-        print_status "STEP" "Checking ChromaDB server status..."
-        
-        # Try to connect to ChromaDB server
-        if curl -s --connect-timeout 5 http://localhost:8000/api/v1/heartbeat >/dev/null 2>&1; then
-            print_status "SUCCESS" "ChromaDB server is running at http://localhost:8000"
-            server_running=true
-        else
-            print_status "WARNING" "ChromaDB server not running, attempting to start..."
-            
-            # Try to start ChromaDB server
-            if command -v chroma >/dev/null 2>&1; then
-                print_status "STEP" "Starting ChromaDB server in background..."
-                
-                # Check if port 8000 is already in use
-                if lsof -i :8000 >/dev/null 2>&1; then
-                    print_status "WARNING" "Port 8000 is already in use by another process"
-                    print_status "INFO" "Please stop the process using port 8000 or configure ChromaDB to use a different port"
-                    ((MISSING_DEPENDENCIES++))
-                    return 1
-                fi
-                
-                # Ensure logs directory exists before starting ChromaDB server
-                # This prevents errors when ChromaDB tries to write to logs/chromadb.log
-                # The -p flag ensures no error if the directory already exists
-                mkdir -p logs
-                
-                # Start ChromaDB server in background
-                nohup chroma run --host localhost --port 8000 > logs/chromadb.log 2>&1 &
-                local chromadb_pid=$!
-                
-                # Wait for server to start
-                print_status "STEP" "Waiting for ChromaDB server to start..."
-                local attempts=0
-                local max_attempts=30
-                
-                while [[ $attempts -lt $max_attempts ]]; do
-                    if curl -s --connect-timeout 2 http://localhost:8000/api/v1/heartbeat >/dev/null 2>&1; then
-                        print_status "SUCCESS" "ChromaDB server started successfully (PID: $chromadb_pid)"
-                        server_running=true
-                        break
-                    fi
-                    
-                    sleep 1
-                    ((attempts++))
-                    
-                    if [[ $((attempts % 5)) -eq 0 ]]; then
-                        print_status "INFO" "Still waiting for ChromaDB server... (attempt $attempts/$max_attempts)"
-                    fi
-                done
-                
-                if [[ $server_running == false ]]; then
-                    print_status "ERROR" "Failed to start ChromaDB server after $max_attempts attempts"
-                    print_status "INFO" "Check logs/chromadb.log for details"
-                    kill $chromadb_pid 2>/dev/null || true
-                    ((FAILED_INSTALLATIONS++))
-                    return 1
-                fi
-            else
-                print_status "ERROR" "ChromaDB CLI not found, cannot start server"
-                print_status "INFO" "Please install ChromaDB CLI: pip3 install chromadb"
-                ((FAILED_INSTALLATIONS++))
-                return 1
-            fi
-        fi
+    # Start ChromaDB server
+    print_status "STEP" "Starting ChromaDB server..."
+    
+    # Check if server is already running
+    if curl -s --connect-timeout 2 http://localhost:8000/api/v1/heartbeat >/dev/null 2>&1; then
+        print_status "SUCCESS" "ChromaDB server is already running"
+        ((INSTALLED_DEPENDENCIES++))
+        return 0
     fi
     
-    # Detect API version and validate compatibility
-    if [[ $server_running == true ]]; then
-        print_status "STEP" "Detecting ChromaDB API version..."
-        
-        # Try to get API version
-        local api_response=""
-        if command -v curl >/dev/null 2>&1; then
-            api_response=$(curl -s --connect-timeout 5 http://localhost:8000/api/v1/heartbeat 2>/dev/null)
+    # Start server in background
+    if command -v chroma >/dev/null 2>&1; then
+        # Check if port is available
+        if lsof -i :8000 >/dev/null 2>&1; then
+            print_status "WARNING" "Port 8000 is already in use by another process"
+            print_status "INFO" "ChromaDB server may not start properly"
         fi
         
-        if [[ -n "$api_response" ]]; then
-            # Parse version from response
-            local version=$(echo "$api_response" | grep -o '"version":"[^"]*"' | cut -d'"' -f4)
-            
-            if [[ -n "$version" ]]; then
-                print_status "SUCCESS" "ChromaDB API version detected: $version"
-                
-                # Check if version is v2 or later
-                local major_version=$(echo "$version" | cut -d'.' -f1 | sed 's/v//')
-                if [[ "$major_version" -ge 2 ]]; then
-                    print_status "SUCCESS" "ChromaDB version $version is compatible (v2+)"
-                    print_status "INFO" "Full API URL: http://localhost:8000/api/v1"
-                    print_status "INFO" "Server logs: logs/chromadb.log"
-                    ((INSTALLED_DEPENDENCIES++))
-                else
-                    print_status "ERROR" "ChromaDB version $version is not supported (requires v2+)"
-                    print_status "INFO" "Please upgrade ChromaDB to version 2 or later:"
-                    print_status "INFO" "  pip3 install --upgrade chromadb"
-                    ((FAILED_INSTALLATIONS++))
-                    return 1
-                fi
-            else
-                print_status "WARNING" "Could not detect ChromaDB API version"
-                print_status "INFO" "Assuming compatibility and proceeding..."
-                print_status "INFO" "Full API URL: http://localhost:8000/api/v1"
+        # Start ChromaDB server in background
+        nohup chroma run --host localhost --port 8000 > logs/chromadb.log 2>&1 &
+        local chromadb_pid=$!
+        
+        # Wait for server to start
+        print_status "STEP" "Waiting for ChromaDB server to start..."
+        local attempts=0
+        local max_attempts=30
+        
+        while [[ $attempts -lt $max_attempts ]]; do
+            if curl -s --connect-timeout 2 http://localhost:8000/api/v1/heartbeat >/dev/null 2>&1; then
+                print_status "SUCCESS" "ChromaDB server started successfully (PID: $chromadb_pid)"
                 ((INSTALLED_DEPENDENCIES++))
+                return 0
             fi
-        else
-            print_status "ERROR" "Could not connect to ChromaDB API"
-            print_status "INFO" "Server may not be responding properly"
-            ((FAILED_INSTALLATIONS++))
-            return 1
-        fi
-    else
-        print_status "ERROR" "ChromaDB server is not running"
-        ((MISSING_DEPENDENCIES++))
-        return 1
-    fi
-    
-    # Create ChromaDB configuration file
-    if [[ ! -f "chromadb_config.json" ]]; then
-        cat > chromadb_config.json << EOF
-{
-    "chroma_api_impl": "rest",
-    "chroma_server_host": "localhost",
-    "chroma_server_http_port": 8000,
-    "chroma_server_ssl_enabled": false,
-    "chroma_server_ssl_cert_file": "",
-    "chroma_server_ssl_key_file": "",
-    "chroma_server_ssl_ca_cert_file": "",
-    "chroma_server_ssl_verify": false
-}
-EOF
-        print_status "SUCCESS" "Created ChromaDB configuration file: chromadb_config.json"
-    fi
-    
-    print_status "SUCCESS" "ChromaDB setup completed successfully"
-}
-
-# Stop ChromaDB server (utility function)
-stop_chromadb() {
-    print_status "STEP" "Stopping ChromaDB server..."
-    
-    # Find ChromaDB processes
-    local chromadb_pids=$(pgrep -f "chroma run" 2>/dev/null || true)
-    
-    if [[ -n "$chromadb_pids" ]]; then
-        print_status "INFO" "Found ChromaDB processes: $chromadb_pids"
-        for pid in $chromadb_pids; do
-            if kill $pid 2>/dev/null; then
-                print_status "SUCCESS" "Stopped ChromaDB process (PID: $pid)"
-            else
-                print_status "WARNING" "Failed to stop ChromaDB process (PID: $pid)"
+            
+            sleep 1
+            ((attempts++))
+            
+            if [[ $((attempts % 5)) -eq 0 ]]; then
+                print_status "INFO" "Still waiting for ChromaDB server... (attempt $attempts/$max_attempts)"
             fi
         done
         
-        # Wait a moment for processes to stop
-        sleep 2
-        
-        # Check if processes are still running
-        local remaining_pids=$(pgrep -f "chroma run" 2>/dev/null || true)
-        if [[ -n "$remaining_pids" ]]; then
-            print_status "WARNING" "Some ChromaDB processes are still running: $remaining_pids"
-            print_status "INFO" "You may need to stop them manually: kill -9 $remaining_pids"
-        else
-            print_status "SUCCESS" "All ChromaDB processes stopped"
-        fi
-    else
-        print_status "INFO" "No ChromaDB processes found"
-    fi
-}
-
-# Check project files
-check_project_files() {
-    print_status "STEP" "Checking project files..."
-    
-    local missing_files=()
-    
-    for file in "${REQUIRED_FILES[@]}"; do
-        if [[ -f "$file" ]]; then
-            print_status "SUCCESS" "Found: $file"
-            ((INSTALLED_DEPENDENCIES++))
-        else
-            print_status "WARNING" "Missing: $file"
-            missing_files+=("$file")
-            ((MISSING_DEPENDENCIES++))
-        fi
-    done
-    
-    if [[ ${#missing_files[@]} -gt 0 ]]; then
-        print_status "ERROR" "Missing required project files:"
-        for file in "${missing_files[@]}"; do
-            print_status "ERROR" "  - $file"
-        done
-        print_status "ERROR" "Please ensure all project files are present before running this script"
+        print_status "ERROR" "Failed to start ChromaDB server after $max_attempts attempts"
+        print_status "INFO" "Check logs/chromadb.log for details"
+        kill $chromadb_pid 2>/dev/null || true
+        ((FAILED_INSTALLATIONS++))
         return 1
-    fi
-    
-    return 0
-}
-
-# Check JNI libraries and provide build instructions
-check_jni_libraries() {
-    print_status "STEP" "Checking JNI libraries..."
-    
-    local found_libs=0
-    local missing_libs=()
-    
-    for lib in "${JNI_LIBRARIES[@]}"; do
-        if [[ -f "$lib" ]]; then
-            print_status "SUCCESS" "Found JNI library: $lib"
-            ((found_libs++))
-        else
-            missing_libs+=("$lib")
-        fi
-    done
-    
-    if [[ $found_libs -eq 0 ]]; then
-        print_status "WARNING" "No JNI libraries found. These need to be built:"
-        print_status "INFO" "Required JNI libraries:"
-        print_status "INFO" "  - libllama.so (Linux)"
-        print_status "INFO" "  - libllama.dylib (macOS)"
-        print_status "INFO" "  - llama.dll (Windows)"
-        print_status "INFO" ""
-        print_status "INFO" "Build instructions for libllama.so:"
-        print_status "INFO" "  1. Ensure llama.cpp is installed:"
-        print_status "INFO" "     git clone https://github.com/ggerganov/llama.cpp.git"
-        print_status "INFO" "     cd llama.cpp && make"
-        print_status "INFO" "  2. Compile JNI wrapper:"
-        print_status "INFO" "     g++ -fPIC -shared \\"
-        print_status "INFO" "       -I\$JAVA_HOME/include \\"
-        print_status "INFO" "       -I\$JAVA_HOME/include/linux \\"
-        print_status "INFO" "       -I./llama.cpp \\"
-        print_status "INFO" "       -L./llama.cpp -lllama \\"
-        print_status "INFO" "       -o bin/libllama.so \\"
-        print_status "INFO" "       main/llama_jni.cpp"
-        print_status "INFO" "  3. Set library path:"
-        print_status "INFO" "     export LD_LIBRARY_PATH=\$(pwd)/bin:\$LD_LIBRARY_PATH"
-        print_status "INFO" ""
-        print_status "INFO" "For macOS (libllama.dylib):"
-        print_status "INFO" "     g++ -fPIC -shared \\"
-        print_status "INFO" "       -I\$JAVA_HOME/include \\"
-        print_status "INFO" "       -I\$JAVA_HOME/include/darwin \\"
-        print_status "INFO" "       -I./llama.cpp \\"
-        print_status "INFO" "       -L./llama.cpp -lllama \\"
-        print_status "INFO" "       -o bin/libllama.dylib \\"
-        print_status "INFO" "       main/llama_jni.cpp"
-        print_status "INFO" ""
-        print_status "INFO" "For Windows (llama.dll):"
-        print_status "INFO" "     g++ -shared \\"
-        print_status "INFO" "       -I\"%JAVA_HOME%\\include\" \\"
-        print_status "INFO" "       -I\"%JAVA_HOME%\\include\\win32\" \\"
-        print_status "INFO" "       -I./llama.cpp \\"
-        print_status "INFO" "       -L./llama.cpp -lllama \\"
-        print_status "INFO" "       -o bin/llama.dll \\"
-        print_status "INFO" "       main/llama_jni.cpp"
-        ((MISSING_DEPENDENCIES++))
     else
-        print_status "SUCCESS" "Found $found_libs JNI library(ies)"
-    fi
-}
-
-# Check binary/library files (may not exist yet)
-check_binary_files() {
-    print_status "STEP" "Checking binary/library files..."
-    
-    local found_binaries=0
-    
-    for binary in "${EXPECTED_BINARIES[@]}"; do
-        if [[ -f "$binary" ]]; then
-            print_status "SUCCESS" "Found: $binary"
-            ((found_binaries++))
-        else
-            print_status "INFO" "Not found (will be built): $binary"
-        fi
-    done
-    
-    if [[ $found_binaries -eq 0 ]]; then
-        print_status "WARNING" "No binary files found. These will need to be built:"
-        print_status "INFO" "  - Compile llama_jni.cpp to create libllama.so"
-        print_status "INFO" "  - Build Java project to create chatbot.jar"
-        print_status "INFO" "  - Place files in bin/ directory"
-    else
-        print_status "SUCCESS" "Found $found_binaries binary file(s)"
+        print_status "ERROR" "ChromaDB CLI not found, cannot start server"
+        ((FAILED_INSTALLATIONS++))
+        return 1
     fi
 }
 
@@ -909,7 +858,7 @@ check_binary_files() {
 create_directories() {
     print_status "STEP" "Creating necessary directories..."
     
-    local directories=("bin" "models" "logs" "tmp")
+    local directories=("bin" "logs" "models" "tmp")
     
     for dir in "${directories[@]}"; do
         if [[ ! -d "$dir" ]]; then
@@ -928,7 +877,7 @@ setup_environment() {
     # Create .env file if it doesn't exist
     if [[ ! -f ".env" ]]; then
         cat > .env << EOF
-# Pentesting Chatbot Environment Variables
+# Agent-Orange Environment Variables
 export LD_LIBRARY_PATH="\$(pwd)/bin:\$LD_LIBRARY_PATH"
 export DYLD_LIBRARY_PATH="\$(pwd)/bin:\$DYLD_LIBRARY_PATH"
 export JAVA_OPTS="-Xmx4g -Xms2g"
@@ -960,7 +909,7 @@ setup_global_cli() {
     local install_path=""
     local install_dir=""
     
-    if [[ $EUID -eq 0 ]]; then
+    if [[ $IS_ROOT == true ]]; then
         # Root user - install to system-wide location
         install_path="/usr/local/bin/agnt-orange"
         install_dir="/usr/local/bin"
@@ -1001,15 +950,10 @@ setup_global_cli() {
         path_in_path=true
     fi
     
-    # Check if the specific path is in PATH
-    if [[ ":$current_path:" == *":$install_path:"* ]]; then
-        path_in_path=true
-    fi
-    
     if [[ $path_in_path == false ]]; then
         print_status "WARNING" "Installation path is not in your PATH"
         print_status "INFO" "To use 'agnt-orange' from any directory, add this to your shell profile:"
-        if [[ $EUID -eq 0 ]]; then
+        if [[ $IS_ROOT == true ]]; then
             print_status "INFO" "  export PATH=\"/usr/local/bin:\$PATH\""
         else
             print_status "INFO" "  export PATH=\"\$HOME/.local/bin:\$PATH\""
@@ -1029,99 +973,30 @@ setup_global_cli() {
     fi
 }
 
-# Print usage instructions
-print_usage_instructions() {
-    # Use simple format for narrow terminals or non-UTF-8 terminals
-    if [[ $TERMINAL_WIDTH -lt 70 || "$TERMINAL_SUPPORTS_UTF8" != true ]]; then
-        echo
-        print_status "HEADER" "================================================================================"
-        print_status "HEADER" "                        Usage Instructions"
-        print_status "HEADER" "================================================================================"
-        print_status "HEADER" "  QUICK START:"
-        print_status "HEADER" "    agnt-orange                    # Global CLI command"
-        print_status "HEADER" "    ./run_chatbot.sh               # Local script"
-        print_status "HEADER" ""
-        print_status "HEADER" "  BUILD PROJECT:"
-        print_status "HEADER" "    1. Build JNI library (see instructions above)"
-        print_status "HEADER" "    2. Compile Java: javac -d bin main/*.java"
-        print_status "HEADER" "    3. Create JAR: jar cf bin/chatbot.jar -C bin ."
-        print_status "HEADER" ""
-        print_status "HEADER" "  CONFIGURATION:"
-        print_status "HEADER" "    • Edit application.properties for settings"
-        print_status "HEADER" "    • Edit .env for environment variables"
-        print_status "HEADER" "    • Set JAVA_HOME if not detected automatically"
-        print_status "HEADER" ""
-        print_status "HEADER" "  TROUBLESHOOTING:"
-        print_status "HEADER" "    • Check logs in logs/ directory"
-        print_status "HEADER" "    • Verify all dependencies are installed"
-        print_status "HEADER" "    • Ensure JNI libraries are in library path"
-        print_status "HEADER" "    • Run this script again to re-check dependencies"
-        print_status "HEADER" "================================================================================"
-        echo
-        return
-    fi
-    
-    # Calculate dynamic width for the box
-    local box_width=$((TERMINAL_WIDTH - 4))
-    local title="Usage Instructions"
-    
-    # Ensure minimum width for content
-    if [[ $box_width -lt 60 ]]; then
-        box_width=60
-    fi
-    
-    # Create dynamic box borders
-    local top_border="╔$(printf '═%.0s' $(seq 1 $((box_width-2))))╗"
-    local separator="╠$(printf '═%.0s' $(seq 1 $((box_width-2))))╣"
-    local bottom_border="╚$(printf '═%.0s' $(seq 1 $((box_width-2))))╝"
-    
-    # Center the title
-    local title_padding=$(( (box_width - ${#title}) / 2 ))
-    local title_line="║$(printf ' %.0s' $(seq 1 $title_padding))$title$(printf ' %.0s' $(seq 1 $((box_width - title_padding - ${#title}))))║"
-    
-    # Format content lines (truncate if too long)
-    local quick_start="║  QUICK START:$(printf ' %.0s' $(seq 1 $((box_width - 15))))║"
-    local global_cmd="║    agnt-orange                    # Global CLI command$(printf ' %.0s' $(seq 1 $((box_width - 40))))║"
-    local local_cmd="║    ./run_chatbot.sh               # Local script$(printf ' %.0s' $(seq 1 $((box_width - 35))))║"
-    local empty_line="║$(printf ' %.0s' $(seq 1 $((box_width-2))))║"
-    local build_title="║  BUILD PROJECT:$(printf ' %.0s' $(seq 1 $((box_width - 17))))║"
-    local build_step1="║    1. Build JNI library (see instructions above)$(printf ' %.0s' $(seq 1 $((box_width - 47))))║"
-    local build_step2="║    2. Compile Java: javac -d bin main/*.java$(printf ' %.0s' $(seq 1 $((box_width - 42))))║"
-    local build_step3="║    3. Create JAR: jar cf bin/chatbot.jar -C bin .$(printf ' %.0s' $(seq 1 $((box_width - 44))))║"
-    local config_title="║  CONFIGURATION:$(printf ' %.0s' $(seq 1 $((box_width - 16))))║"
-    local config_step1="║    • Edit application.properties for settings$(printf ' %.0s' $(seq 1 $((box_width - 42))))║"
-    local config_step2="║    • Edit .env for environment variables$(printf ' %.0s' $(seq 1 $((box_width - 37))))║"
-    local config_step3="║    • Set JAVA_HOME if not detected automatically$(printf ' %.0s' $(seq 1 $((box_width - 47))))║"
-    local trouble_title="║  TROUBLESHOOTING:$(printf ' %.0s' $(seq 1 $((box_width - 18))))║"
-    local trouble_step1="║    • Check logs in logs/ directory$(printf ' %.0s' $(seq 1 $((box_width - 33))))║"
-    local trouble_step2="║    • Verify all dependencies are installed$(printf ' %.0s' $(seq 1 $((box_width - 37))))║"
-    local trouble_step3="║    • Ensure JNI libraries are in library path$(printf ' %.0s' $(seq 1 $((box_width - 40))))║"
-    local trouble_step4="║    • Run this script again to re-check dependencies$(printf ' %.0s' $(seq 1 $((box_width - 47))))║"
-    
+# Print final success message
+print_success_message() {
     echo
-    print_status "HEADER" "$top_border"
-    print_status "HEADER" "$title_line"
-    print_status "HEADER" "$separator"
-    print_status "HEADER" "$quick_start"
-    print_status "HEADER" "$global_cmd"
-    print_status "HEADER" "$local_cmd"
-    print_status "HEADER" "$empty_line"
-    print_status "HEADER" "$build_title"
-    print_status "HEADER" "$build_step1"
-    print_status "HEADER" "$build_step2"
-    print_status "HEADER" "$build_step3"
-    print_status "HEADER" "$empty_line"
-    print_status "HEADER" "$config_title"
-    print_status "HEADER" "$config_step1"
-    print_status "HEADER" "$config_step2"
-    print_status "HEADER" "$config_step3"
-    print_status "HEADER" "$empty_line"
-    print_status "HEADER" "$trouble_title"
-    print_status "HEADER" "$trouble_step1"
-    print_status "HEADER" "$trouble_step2"
-    print_status "HEADER" "$trouble_step3"
-    print_status "HEADER" "$trouble_step4"
-    print_status "HEADER" "$bottom_border"
+    print_status "SUCCESS" "🎉 Agent-Orange installation completed successfully!"
+    echo
+    print_status "INFO" "🚀 You can now start the chatbot using:"
+    print_status "INFO" "   agnt-orange                    # Launch interactive mode"
+    print_status "INFO" "   agnt-orange \"Hello, how are you?\"  # Send a message"
+    print_status "INFO" "   agnt-orange --help             # Show help"
+    echo
+    print_status "INFO" "📚 Available commands:"
+    print_status "INFO" "   • General chat and conversation"
+    print_status "INFO" "   • Binary analysis with Ghidra"
+    print_status "INFO" "   • Text embedding and vector search"
+    print_status "INFO" "   • LLM-powered security analysis"
+    echo
+    print_status "INFO" "🔧 Configuration files:"
+    print_status "INFO" "   • application.properties - Main configuration"
+    print_status "INFO" "   • .env - Environment variables"
+    print_status "INFO" "   • logs/ - Log files"
+    echo
+    print_status "INFO" "📖 For more information, see README.md and QUICKSTART.md"
+    echo
+    print_status "SUCCESS" "Happy pentesting! 🛡️"
     echo
 }
 
@@ -1155,7 +1030,7 @@ main() {
     # Check and install dependencies
     print_status "STEP" "Checking and installing dependencies..."
     
-    # System commands (java, javac, gcc, g++, cmake, make, python3, lsof)
+    # System commands (java, javac, gcc, g++, cmake, make, wget, curl)
     TOTAL_DEPENDENCIES=$((TOTAL_DEPENDENCIES + 8))
     check_system_commands
     
@@ -1167,25 +1042,11 @@ main() {
     
     # Ghidra
     TOTAL_DEPENDENCIES=$((TOTAL_DEPENDENCIES + 1))
-    check_ghidra
+    install_ghidra
     
     # ChromaDB
     TOTAL_DEPENDENCIES=$((TOTAL_DEPENDENCIES + 1))
-    check_chromadb
-    
-    # JNI Libraries
-    TOTAL_DEPENDENCIES=$((TOTAL_DEPENDENCIES + 1))
-    check_jni_libraries
-    
-    # Project files
-    TOTAL_DEPENDENCIES=$((TOTAL_DEPENDENCIES + 1))
-    if ! check_project_files; then
-        print_status "ERROR" "Critical project files are missing. Please ensure all files are present."
-        exit 1
-    fi
-    
-    # Binary files
-    check_binary_files
+    install_chromadb
     
     # Create directories
     create_directories
@@ -1199,8 +1060,8 @@ main() {
     # Print summary
     print_footer
     
-    # Print usage instructions
-    print_usage_instructions
+    # Print success message
+    print_success_message
     
     # Final status
     if [[ $MISSING_DEPENDENCIES -eq 0 && $FAILED_INSTALLATIONS -eq 0 ]]; then
