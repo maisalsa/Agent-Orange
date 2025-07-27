@@ -643,6 +643,11 @@ check_chromadb() {
                     return 1
                 fi
                 
+                # Ensure logs directory exists before starting ChromaDB server
+                # This prevents errors when ChromaDB tries to write to logs/chromadb.log
+                # The -p flag ensures no error if the directory already exists
+                mkdir -p logs
+                
                 # Start ChromaDB server in background
                 nohup chroma run --host localhost --port 8000 > logs/chromadb.log 2>&1 &
                 local chromadb_pid=$!
@@ -1038,6 +1043,11 @@ print_usage_instructions() {
 # ============================================================================
 
 main() {
+    # Ensure logs directory exists before any logging operations
+    # This prevents errors when ChromaDB or other components try to write logs
+    # The -p flag ensures no error if the directory already exists
+    mkdir -p logs
+    
     print_header
     
     # Check privileges
