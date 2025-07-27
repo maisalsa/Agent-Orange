@@ -941,8 +941,92 @@ EOF
     fi
     
     # Make scripts executable
-    chmod +x install.sh run_chatbot.sh 2>/dev/null || true
+    chmod +x install.sh run_chatbot.sh agnt-orange 2>/dev/null || true
     print_status "SUCCESS" "Made scripts executable"
+}
+
+# Set up global CLI command
+setup_global_cli() {
+    print_status "STEP" "Setting up global CLI command..."
+    
+    # Check if agnt-orange wrapper script exists
+    if [[ ! -f "agnt-orange" ]]; then
+        print_status "ERROR" "agnt-orange wrapper script not found"
+        print_status "INFO" "Please ensure the agnt-orange script is in the project root"
+        return 1
+    fi
+    
+    # Determine installation path based on user privileges
+    local install_path=""
+    local install_dir=""
+    
+    if [[ $EUID -eq 0 ]]; then
+        # Root user - install to system-wide location
+        install_path="/usr/local/bin/agnt-orange"
+        install_dir="/usr/local/bin"
+    else
+        # Regular user - install to user's local bin
+        install_path="$HOME/.local/bin/agnt-orange"
+        install_dir="$HOME/.local/bin"
+    fi
+    
+    # Create installation directory if it doesn't exist
+    if [[ ! -d "$install_dir" ]]; then
+        print_status "INFO" "Creating installation directory: $install_dir"
+        mkdir -p "$install_dir"
+    fi
+    
+    # Copy the wrapper script to the installation path
+    if cp "agnt-orange" "$install_path"; then
+        print_status "SUCCESS" "Copied agnt-orange to: $install_path"
+    else
+        print_status "ERROR" "Failed to copy agnt-orange to: $install_path"
+        return 1
+    fi
+    
+    # Set executable permissions
+    if chmod +x "$install_path"; then
+        print_status "SUCCESS" "Set executable permissions on: $install_path"
+    else
+        print_status "ERROR" "Failed to set executable permissions on: $install_path"
+        return 1
+    fi
+    
+    # Check if installation path is in PATH
+    local path_in_path=false
+    local current_path="$PATH"
+    
+    # Check if the installation directory is in PATH
+    if [[ ":$current_path:" == *":$install_dir:"* ]]; then
+        path_in_path=true
+    fi
+    
+    # Check if the specific path is in PATH
+    if [[ ":$current_path:" == *":$install_path:"* ]]; then
+        path_in_path=true
+    fi
+    
+    if [[ $path_in_path == false ]]; then
+        print_status "WARNING" "Installation path is not in your PATH"
+        print_status "INFO" "To use 'agnt-orange' from any directory, add this to your shell profile:"
+        if [[ $EUID -eq 0 ]]; then
+            print_status "INFO" "  export PATH=\"/usr/local/bin:\$PATH\""
+        else
+            print_status "INFO" "  export PATH=\"\$HOME/.local/bin:\$PATH\""
+        fi
+        print_status "INFO" "Or restart your terminal session."
+    else
+        print_status "SUCCESS" "Installation path is in your PATH"
+    fi
+    
+    # Test the installation
+    if command -v agnt-orange >/dev/null 2>&1; then
+        print_status "SUCCESS" "Global CLI command 'agnt-orange' is now available"
+        print_status "INFO" "You can now use: agnt-orange <command> or agnt-orange from any directory"
+    else
+        print_status "WARNING" "Global CLI command may not be immediately available"
+        print_status "INFO" "Try restarting your terminal or adding the installation path to your PATH"
+    fi
 }
 
 # Print usage instructions
@@ -954,7 +1038,8 @@ print_usage_instructions() {
         print_status "HEADER" "                        Usage Instructions"
         print_status "HEADER" "================================================================================"
         print_status "HEADER" "  QUICK START:"
-        print_status "HEADER" "    ./run_chatbot.sh"
+        print_status "HEADER" "    agnt-orange                    # Global CLI command"
+        print_status "HEADER" "    ./run_chatbot.sh               # Local script"
         print_status "HEADER" ""
         print_status "HEADER" "  BUILD PROJECT:"
         print_status "HEADER" "    1. Build JNI library (see instructions above)"
@@ -996,7 +1081,8 @@ print_usage_instructions() {
     
     # Format content lines (truncate if too long)
     local quick_start="║  QUICK START:$(printf ' %.0s' $(seq 1 $((box_width - 15))))║"
-    local run_cmd="║    ./run_chatbot.sh$(printf ' %.0s' $(seq 1 $((box_width - 20))))║"
+    local global_cmd="║    agnt-orange                    # Global CLI command$(printf ' %.0s' $(seq 1 $((box_width - 40))))║"
+    local local_cmd="║    ./run_chatbot.sh               # Local script$(printf ' %.0s' $(seq 1 $((box_width - 35))))║"
     local empty_line="║$(printf ' %.0s' $(seq 1 $((box_width-2))))║"
     local build_title="║  BUILD PROJECT:$(printf ' %.0s' $(seq 1 $((box_width - 17))))║"
     local build_step1="║    1. Build JNI library (see instructions above)$(printf ' %.0s' $(seq 1 $((box_width - 47))))║"
@@ -1017,7 +1103,8 @@ print_usage_instructions() {
     print_status "HEADER" "$title_line"
     print_status "HEADER" "$separator"
     print_status "HEADER" "$quick_start"
-    print_status "HEADER" "$run_cmd"
+    print_status "HEADER" "$global_cmd"
+    print_status "HEADER" "$local_cmd"
     print_status "HEADER" "$empty_line"
     print_status "HEADER" "$build_title"
     print_status "HEADER" "$build_step1"
@@ -1105,6 +1192,9 @@ main() {
     
     # Setup environment
     setup_environment
+    
+    # Setup global CLI command
+    setup_global_cli
     
     # Print summary
     print_footer
