@@ -124,6 +124,82 @@ GHIDRA_PATHS=(
 # UTILITY FUNCTIONS
 # ============================================================================
 
+# Terminal detection and compatibility functions
+detect_terminal_capabilities() {
+    # Check if we're in a terminal
+    if [[ ! -t 1 ]]; then
+        # Not a terminal, disable fancy output
+        TERMINAL_SUPPORTS_UTF8=false
+        TERMINAL_WIDTH=80
+        return
+    fi
+    
+    # Get terminal width
+    if command -v tput >/dev/null 2>&1; then
+        TERMINAL_WIDTH=$(tput cols 2>/dev/null || echo 80)
+    else
+        TERMINAL_WIDTH=80
+    fi
+    
+    # Ensure minimum width
+    if [[ $TERMINAL_WIDTH -lt 60 ]]; then
+        TERMINAL_WIDTH=60
+    fi
+    
+    # Check UTF-8 support
+    TERMINAL_SUPPORTS_UTF8=false
+    if [[ -n "$LANG" && "$LANG" =~ UTF-8 ]]; then
+        TERMINAL_SUPPORTS_UTF8=true
+    elif [[ -n "$LC_ALL" && "$LC_ALL" =~ UTF-8 ]]; then
+        TERMINAL_SUPPORTS_UTF8=true
+    elif [[ -n "$LC_CTYPE" && "$LC_CTYPE" =~ UTF-8 ]]; then
+        TERMINAL_SUPPORTS_UTF8=true
+    fi
+    
+    # Additional check for terminal type
+    if [[ -n "$TERM" ]]; then
+        case "$TERM" in
+            *"xterm"*|*"screen"*|*"tmux"*|*"linux"*)
+                TERMINAL_SUPPORTS_UTF8=true
+                ;;
+        esac
+    fi
+    
+    # Test UTF-8 output capability
+    if [[ "$TERMINAL_SUPPORTS_UTF8" == true ]]; then
+        # Test if terminal can display UTF-8 characters
+        if ! echo -e "\xe2\x95\x94" >/dev/null 2>&1; then
+            TERMINAL_SUPPORTS_UTF8=false
+        fi
+    fi
+}
+
+# Print simple header for narrow terminals or non-UTF-8 terminals
+print_simple_header() {
+    echo
+    print_status "HEADER" "================================================================================"
+    print_status "HEADER" "                    $PROJECT_NAME Installation"
+    print_status "HEADER" "================================================================================"
+    print_status "HEADER" "  Script: $SCRIPT_NAME v$SCRIPT_VERSION"
+    print_status "HEADER" "  Date: $(date)"
+    print_status "HEADER" "================================================================================"
+    echo
+}
+
+# Print simple footer for narrow terminals or non-UTF-8 terminals
+print_simple_footer() {
+    echo
+    print_status "HEADER" "================================================================================"
+    print_status "HEADER" "                        Installation Summary"
+    print_status "HEADER" "================================================================================"
+    print_status "HEADER" "  Total Dependencies: $TOTAL_DEPENDENCIES"
+    print_status "HEADER" "  Installed/Found: $INSTALLED_DEPENDENCIES"
+    print_status "HEADER" "  Missing: $MISSING_DEPENDENCIES"
+    print_status "HEADER" "  Failed Installations: $FAILED_INSTALLATIONS"
+    print_status "HEADER" "================================================================================"
+    echo
+}
+
 # Print colored output
 print_status() {
     local status=$1
@@ -154,27 +230,90 @@ print_status() {
 
 # Print header with project information
 print_header() {
+    # Check terminal capabilities
+    detect_terminal_capabilities
+    
+    # Use simple header for narrow terminals or non-UTF-8 terminals
+    if [[ $TERMINAL_WIDTH -lt 70 || "$TERMINAL_SUPPORTS_UTF8" != true ]]; then
+        print_simple_header
+        return
+    fi
+    
+    # Calculate dynamic width for the box
+    local box_width=$((TERMINAL_WIDTH - 4))
+    local title="$PROJECT_NAME Installation"
+    local script_info="Script: $SCRIPT_NAME v$SCRIPT_VERSION"
+    local date_info="Date: $(date)"
+    
+    # Ensure minimum width for content
+    if [[ $box_width -lt 60 ]]; then
+        box_width=60
+    fi
+    
+    # Create dynamic box borders
+    local top_border="╔$(printf '═%.0s' $(seq 1 $((box_width-2))))╗"
+    local separator="╠$(printf '═%.0s' $(seq 1 $((box_width-2))))╣"
+    local bottom_border="╚$(printf '═%.0s' $(seq 1 $((box_width-2))))╝"
+    
+    # Center the title
+    local title_padding=$(( (box_width - ${#title}) / 2 ))
+    local title_line="║$(printf ' %.0s' $(seq 1 $title_padding))$title$(printf ' %.0s' $(seq 1 $((box_width - title_padding - ${#title}))))║"
+    
+    # Format script info and date
+    local script_line="║  $script_info$(printf ' %.0s' $(seq 1 $((box_width - ${#script_info} - 3))))║"
+    local date_line="║  $date_info$(printf ' %.0s' $(seq 1 $((box_width - ${#date_info} - 3))))║"
+    
     echo
-    print_status "HEADER" "╔══════════════════════════════════════════════════════════════╗"
-    print_status "HEADER" "║                    $PROJECT_NAME Installation                    ║"
-    print_status "HEADER" "╠══════════════════════════════════════════════════════════════╣"
-    print_status "HEADER" "║  Script: $SCRIPT_NAME v$SCRIPT_VERSION                              ║"
-    print_status "HEADER" "║  Date: $(date)                                    ║"
-    print_status "HEADER" "╚══════════════════════════════════════════════════════════════╝"
+    print_status "HEADER" "$top_border"
+    print_status "HEADER" "$title_line"
+    print_status "HEADER" "$separator"
+    print_status "HEADER" "$script_line"
+    print_status "HEADER" "$date_line"
+    print_status "HEADER" "$bottom_border"
     echo
 }
 
 # Print footer with summary
 print_footer() {
+    # Use simple footer for narrow terminals or non-UTF-8 terminals
+    if [[ $TERMINAL_WIDTH -lt 70 || "$TERMINAL_SUPPORTS_UTF8" != true ]]; then
+        print_simple_footer
+        return
+    fi
+    
+    # Calculate dynamic width for the box
+    local box_width=$((TERMINAL_WIDTH - 4))
+    local title="Installation Summary"
+    
+    # Ensure minimum width for content
+    if [[ $box_width -lt 60 ]]; then
+        box_width=60
+    fi
+    
+    # Create dynamic box borders
+    local top_border="╔$(printf '═%.0s' $(seq 1 $((box_width-2))))╗"
+    local separator="╠$(printf '═%.0s' $(seq 1 $((box_width-2))))╣"
+    local bottom_border="╚$(printf '═%.0s' $(seq 1 $((box_width-2))))╝"
+    
+    # Center the title
+    local title_padding=$(( (box_width - ${#title}) / 2 ))
+    local title_line="║$(printf ' %.0s' $(seq 1 $title_padding))$title$(printf ' %.0s' $(seq 1 $((box_width - title_padding - ${#title}))))║"
+    
+    # Format summary lines
+    local total_line="║  Total Dependencies: $TOTAL_DEPENDENCIES$(printf ' %.0s' $(seq 1 $((box_width - 25 - ${#TOTAL_DEPENDENCIES}))))║"
+    local installed_line="║  Installed/Found: $INSTALLED_DEPENDENCIES$(printf ' %.0s' $(seq 1 $((box_width - 20 - ${#INSTALLED_DEPENDENCIES}))))║"
+    local missing_line="║  Missing: $MISSING_DEPENDENCIES$(printf ' %.0s' $(seq 1 $((box_width - 12 - ${#MISSING_DEPENDENCIES}))))║"
+    local failed_line="║  Failed Installations: $FAILED_INSTALLATIONS$(printf ' %.0s' $(seq 1 $((box_width - 24 - ${#FAILED_INSTALLATIONS}))))║"
+    
     echo
-    print_status "HEADER" "╔══════════════════════════════════════════════════════════════╗"
-    print_status "HEADER" "║                        Installation Summary                    ║"
-    print_status "HEADER" "╠══════════════════════════════════════════════════════════════╣"
-    print_status "HEADER" "║  Total Dependencies: $TOTAL_DEPENDENCIES                                    ║"
-    print_status "HEADER" "║  Installed/Found: $INSTALLED_DEPENDENCIES                                    ║"
-    print_status "HEADER" "║  Missing: $MISSING_DEPENDENCIES                                    ║"
-    print_status "HEADER" "║  Failed Installations: $FAILED_INSTALLATIONS                                    ║"
-    print_status "HEADER" "╚══════════════════════════════════════════════════════════════╝"
+    print_status "HEADER" "$top_border"
+    print_status "HEADER" "$title_line"
+    print_status "HEADER" "$separator"
+    print_status "HEADER" "$total_line"
+    print_status "HEADER" "$installed_line"
+    print_status "HEADER" "$missing_line"
+    print_status "HEADER" "$failed_line"
+    print_status "HEADER" "$bottom_border"
     echo
 }
 
@@ -803,29 +942,94 @@ EOF
 
 # Print usage instructions
 print_usage_instructions() {
+    # Use simple format for narrow terminals or non-UTF-8 terminals
+    if [[ $TERMINAL_WIDTH -lt 70 || "$TERMINAL_SUPPORTS_UTF8" != true ]]; then
+        echo
+        print_status "HEADER" "================================================================================"
+        print_status "HEADER" "                        Usage Instructions"
+        print_status "HEADER" "================================================================================"
+        print_status "HEADER" "  QUICK START:"
+        print_status "HEADER" "    ./run_chatbot.sh"
+        print_status "HEADER" ""
+        print_status "HEADER" "  BUILD PROJECT:"
+        print_status "HEADER" "    1. Build JNI library (see instructions above)"
+        print_status "HEADER" "    2. Compile Java: javac -d bin main/*.java"
+        print_status "HEADER" "    3. Create JAR: jar cf bin/chatbot.jar -C bin ."
+        print_status "HEADER" ""
+        print_status "HEADER" "  CONFIGURATION:"
+        print_status "HEADER" "    • Edit application.properties for settings"
+        print_status "HEADER" "    • Edit .env for environment variables"
+        print_status "HEADER" "    • Set JAVA_HOME if not detected automatically"
+        print_status "HEADER" ""
+        print_status "HEADER" "  TROUBLESHOOTING:"
+        print_status "HEADER" "    • Check logs in logs/ directory"
+        print_status "HEADER" "    • Verify all dependencies are installed"
+        print_status "HEADER" "    • Ensure JNI libraries are in library path"
+        print_status "HEADER" "    • Run this script again to re-check dependencies"
+        print_status "HEADER" "================================================================================"
+        echo
+        return
+    fi
+    
+    # Calculate dynamic width for the box
+    local box_width=$((TERMINAL_WIDTH - 4))
+    local title="Usage Instructions"
+    
+    # Ensure minimum width for content
+    if [[ $box_width -lt 60 ]]; then
+        box_width=60
+    fi
+    
+    # Create dynamic box borders
+    local top_border="╔$(printf '═%.0s' $(seq 1 $((box_width-2))))╗"
+    local separator="╠$(printf '═%.0s' $(seq 1 $((box_width-2))))╣"
+    local bottom_border="╚$(printf '═%.0s' $(seq 1 $((box_width-2))))╝"
+    
+    # Center the title
+    local title_padding=$(( (box_width - ${#title}) / 2 ))
+    local title_line="║$(printf ' %.0s' $(seq 1 $title_padding))$title$(printf ' %.0s' $(seq 1 $((box_width - title_padding - ${#title}))))║"
+    
+    # Format content lines (truncate if too long)
+    local quick_start="║  QUICK START:$(printf ' %.0s' $(seq 1 $((box_width - 15))))║"
+    local run_cmd="║    ./run_chatbot.sh$(printf ' %.0s' $(seq 1 $((box_width - 20))))║"
+    local empty_line="║$(printf ' %.0s' $(seq 1 $((box_width-2))))║"
+    local build_title="║  BUILD PROJECT:$(printf ' %.0s' $(seq 1 $((box_width - 17))))║"
+    local build_step1="║    1. Build JNI library (see instructions above)$(printf ' %.0s' $(seq 1 $((box_width - 47))))║"
+    local build_step2="║    2. Compile Java: javac -d bin main/*.java$(printf ' %.0s' $(seq 1 $((box_width - 42))))║"
+    local build_step3="║    3. Create JAR: jar cf bin/chatbot.jar -C bin .$(printf ' %.0s' $(seq 1 $((box_width - 44))))║"
+    local config_title="║  CONFIGURATION:$(printf ' %.0s' $(seq 1 $((box_width - 16))))║"
+    local config_step1="║    • Edit application.properties for settings$(printf ' %.0s' $(seq 1 $((box_width - 42))))║"
+    local config_step2="║    • Edit .env for environment variables$(printf ' %.0s' $(seq 1 $((box_width - 37))))║"
+    local config_step3="║    • Set JAVA_HOME if not detected automatically$(printf ' %.0s' $(seq 1 $((box_width - 47))))║"
+    local trouble_title="║  TROUBLESHOOTING:$(printf ' %.0s' $(seq 1 $((box_width - 18))))║"
+    local trouble_step1="║    • Check logs in logs/ directory$(printf ' %.0s' $(seq 1 $((box_width - 33))))║"
+    local trouble_step2="║    • Verify all dependencies are installed$(printf ' %.0s' $(seq 1 $((box_width - 37))))║"
+    local trouble_step3="║    • Ensure JNI libraries are in library path$(printf ' %.0s' $(seq 1 $((box_width - 40))))║"
+    local trouble_step4="║    • Run this script again to re-check dependencies$(printf ' %.0s' $(seq 1 $((box_width - 47))))║"
+    
     echo
-    print_status "HEADER" "╔══════════════════════════════════════════════════════════════╗"
-    print_status "HEADER" "║                        Usage Instructions                       ║"
-    print_status "HEADER" "╠══════════════════════════════════════════════════════════════╣"
-    print_status "HEADER" "║  QUICK START:                                                 ║"
-    print_status "HEADER" "║    ./run_chatbot.sh                                           ║"
-    print_status "HEADER" "║                                                               ║"
-    print_status "HEADER" "║  BUILD PROJECT:                                               ║"
-    print_status "HEADER" "║    1. Build JNI library (see instructions above)              ║"
-    print_status "HEADER" "║    2. Compile Java: javac -d bin main/*.java                  ║"
-    print_status "HEADER" "║    3. Create JAR: jar cf bin/chatbot.jar -C bin .            ║"
-    print_status "HEADER" "║                                                               ║"
-    print_status "HEADER" "║  CONFIGURATION:                                               ║"
-    print_status "HEADER" "║    • Edit application.properties for settings                ║"
-    print_status "HEADER" "║    • Edit .env for environment variables                     ║"
-    print_status "HEADER" "║    • Set JAVA_HOME if not detected automatically             ║"
-    print_status "HEADER" "║                                                               ║"
-    print_status "HEADER" "║  TROUBLESHOOTING:                                             ║"
-    print_status "HEADER" "║    • Check logs in logs/ directory                           ║"
-    print_status "HEADER" "║    • Verify all dependencies are installed                   ║"
-    print_status "HEADER" "║    • Ensure JNI libraries are in library path               ║"
-    print_status "HEADER" "║    • Run this script again to re-check dependencies          ║"
-    print_status "HEADER" "╚══════════════════════════════════════════════════════════════╝"
+    print_status "HEADER" "$top_border"
+    print_status "HEADER" "$title_line"
+    print_status "HEADER" "$separator"
+    print_status "HEADER" "$quick_start"
+    print_status "HEADER" "$run_cmd"
+    print_status "HEADER" "$empty_line"
+    print_status "HEADER" "$build_title"
+    print_status "HEADER" "$build_step1"
+    print_status "HEADER" "$build_step2"
+    print_status "HEADER" "$build_step3"
+    print_status "HEADER" "$empty_line"
+    print_status "HEADER" "$config_title"
+    print_status "HEADER" "$config_step1"
+    print_status "HEADER" "$config_step2"
+    print_status "HEADER" "$config_step3"
+    print_status "HEADER" "$empty_line"
+    print_status "HEADER" "$trouble_title"
+    print_status "HEADER" "$trouble_step1"
+    print_status "HEADER" "$trouble_step2"
+    print_status "HEADER" "$trouble_step3"
+    print_status "HEADER" "$trouble_step4"
+    print_status "HEADER" "$bottom_border"
     echo
 }
 
