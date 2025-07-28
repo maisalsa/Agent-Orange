@@ -20,14 +20,21 @@ if [ ! -f "bin/chatbot.jar" ]; then
     exit 2
 fi
 
-# Check for at least one .so file in bin/
-SO_COUNT=$(ls bin/*.so 2>/dev/null | wc -l)
-if [ "$SO_COUNT" -eq 0 ]; then
-    echo "[ERROR] No JNI .so libraries found in bin/. Please build or place native libraries in bin/."
-    exit 3
+# Check for native libraries (optional)
+NATIVE_LIBS=$(ls bin/*.so bin/*.dylib bin/*.dll 2>/dev/null | wc -l || echo 0)
+if [ "$NATIVE_LIBS" -eq 0 ]; then
+    echo "[WARNING] No native libraries found in bin/."
+    echo "[INFO] The application will run with limited functionality."
+    echo "[INFO] To enable native features, run: ./setup_llama.sh"
+else
+    echo "[+] Found $NATIVE_LIBS native library(ies) in bin/"
 fi
 
 echo "[+] Starting pentesting chatbot CLI..."
 echo "[+] LD_LIBRARY_PATH: $LD_LIBRARY_PATH"
+echo "[+] DYLD_LIBRARY_PATH: $DYLD_LIBRARY_PATH"
 
-java -jar bin/chatbot.jar 
+# Set additional library paths for macOS
+export DYLD_LIBRARY_PATH="$(pwd)/bin:$DYLD_LIBRARY_PATH"
+
+java -Djava.library.path=bin -jar bin/chatbot.jar 

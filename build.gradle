@@ -219,21 +219,44 @@ task compileJNI(type: Exec) {
             hasGcc = false
         }
         
-        // Skip if llama.cpp headers are not available
+        // Check if llama.cpp headers are available
         def hasLlama = file('main/llama.h').exists() || 
                       file('/usr/local/include/llama.h').exists() ||
                       file('/opt/llama.cpp/llama.h').exists()
         
-        if (hasGcc && !hasLlama) {
+        // Check if source file exists
+        def hasSource = file('main/llama_jni.cpp').exists()
+        
+        // Check if JNI header exists
+        def hasJNIHeader = file('main/com_example_LlamaJNI.h').exists()
+        
+        if (!hasGcc) {
+            logger.warn("GCC/G++ not found. JNI compilation skipped.")
+            logger.warn("Install with: sudo apt-get install build-essential")
+        } else if (!hasLlama) {
             logger.warn("llama.cpp headers not found. JNI compilation skipped.")
             logger.warn("To enable JNI compilation:")
             logger.warn("1. Install llama.cpp: git clone https://github.com/ggerganov/llama.cpp.git")
             logger.warn("2. Build llama.cpp: cd llama.cpp && make")
             logger.warn("3. Copy llama.h to main/llama.h")
+            logger.warn("4. Or run: ./setup_llama.sh --install-method source")
+        } else if (!hasSource) {
+            logger.warn("llama_jni.cpp source file not found in main/")
+        } else if (!hasJNIHeader) {
+            logger.warn("JNI header not generated. Run: ./gradlew generateJNIHeader")
         }
         
-        return hasGcc && hasLlama && (!file(outputLib).exists() || 
-               file('main/llama_jni.cpp').lastModified() > file(outputLib).lastModified())
+        // Check if rebuild is needed
+        def needsRebuild = !file(outputLib).exists() || 
+                          (hasSource && file('main/llama_jni.cpp').lastModified() > file(outputLib).lastModified())
+        
+        def shouldCompile = hasGcc && hasLlama && hasSource && hasJNIHeader && needsRebuild
+        
+        if (shouldCompile) {
+            logger.info("JNI compilation conditions met - proceeding with compilation")
+        }
+        
+        return shouldCompile
     }
 }
 
