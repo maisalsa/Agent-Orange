@@ -64,6 +64,17 @@ public class Main {
     
     /** Application name */
     private static final String APP_NAME = "Offline Pentesting Chatbot";
+    
+    /**
+     * Check if the terminal supports UTF-8 characters.
+     * @return true if UTF-8 is supported, false otherwise
+     */
+    private static boolean supportsUTF8() {
+        String lang = System.getenv("LANG");
+        String term = System.getenv("TERM");
+        return (lang != null && lang.matches(".*[Uu][Tt][Ff]-?8.*")) && 
+               (term != null && !term.equals("dumb"));
+    }
 
     public static void main(String[] args) {
         // Initialize logging
@@ -298,13 +309,23 @@ public class Main {
      * Display welcome message and basic information.
      */
     private static void displayWelcome() {
-        System.out.println("╔══════════════════════════════════════════════════════════════╗");
-        System.out.println("║                    " + APP_NAME + " v" + VERSION + "                    ║");
-        System.out.println("╠══════════════════════════════════════════════════════════════╣");
-        System.out.println("║  Offline security analysis and pentesting assistant         ║");
-        System.out.println("║  Type 'help' for available commands and examples            ║");
-        System.out.println("║  Type 'exit' to quit the application                        ║");
-        System.out.println("╚══════════════════════════════════════════════════════════════╝");
+        if (supportsUTF8()) {
+            System.out.println("╔══════════════════════════════════════════════════════════════╗");
+            System.out.println("║                    " + APP_NAME + " v" + VERSION + "                    ║");
+            System.out.println("╠══════════════════════════════════════════════════════════════╣");
+            System.out.println("║  Offline security analysis and pentesting assistant         ║");
+            System.out.println("║  Type 'help' for available commands and examples            ║");
+            System.out.println("║  Type 'exit' to quit the application                        ║");
+            System.out.println("╚══════════════════════════════════════════════════════════════╝");
+        } else {
+            System.out.println("+==============================================================+");
+            System.out.println("|                    " + APP_NAME + " v" + VERSION + "                    |");
+            System.out.println("+==============================================================+");
+            System.out.println("|  Offline security analysis and pentesting assistant         |");
+            System.out.println("|  Type 'help' for available commands and examples            |");
+            System.out.println("|  Type 'exit' to quit the application                        |");
+            System.out.println("+==============================================================+");
+        }
         System.out.println();
     }
 
@@ -315,42 +336,82 @@ public class Main {
      */
     private static String displayHelp() {
         StringBuilder help = new StringBuilder();
-        help.append("╔══════════════════════════════════════════════════════════════╗\n");
-        help.append("║                        HELP & COMMANDS                       ║\n");
-        help.append("╠══════════════════════════════════════════════════════════════╣\n");
-        help.append("║  BUILT-IN COMMANDS:                                          ║\n");
-        help.append("║    help, ?          - Show this help message                 ║\n");
-        help.append("║    status           - Show module availability status        ║\n");
-        help.append("║    history          - Show command history                   ║\n");
-        help.append("║    clear, cls       - Clear the screen                       ║\n");
-        help.append("║    version          - Show application version               ║\n");
-        help.append("║    exit, quit       - Exit the application                   ║\n");
-        help.append("║                                                              ║\n");
-        help.append("║  HISTORY NAVIGATION:                                         ║\n");
-        help.append("║    !n               - Execute command number n from history  ║\n");
-        help.append("║    !!               - Execute the last command               ║\n");
-        help.append("║                                                              ║\n");
-        help.append("║  SECURITY ANALYSIS COMMANDS:                                 ║\n");
-        help.append("║    Binary Analysis:                                          ║\n");
-        help.append("║      \"Analyze /path/to/binary with ghidra\"                   ║\n");
-        help.append("║      \"Reverse engineer /path/to/executable\"                 ║\n");
-        help.append("║                                                              ║\n");
-        help.append("║    Embedding Generation:                                     ║\n");
-        help.append("║      \"Embed this text: \\\"sample text\\\"\"                    ║\n");
-        help.append("║      \"Generate vector for: \\\"security analysis\\\"\"          ║\n");
-        help.append("║                                                              ║\n");
-        help.append("║    Vector Database Search:                                   ║\n");
-        help.append("║      \"Search for documents about buffer overflow\"           ║\n");
-        help.append("║      \"Find similar to: \\\"SQL injection techniques\\\"\"        ║\n");
-        help.append("║                                                              ║\n");
-        help.append("║    LLM Generation:                                           ║\n");
-        help.append("║      \"Generate a summary of XSS vulnerabilities\"            ║\n");
-        help.append("║      \"Explain how to perform a port scan\"                   ║\n");
-        help.append("║                                                              ║\n");
-        help.append("║    General Chat:                                             ║\n");
-        help.append("║      \"Hello, how can you help me with security?\"            ║\n");
-        help.append("║      \"What are common web vulnerabilities?\"                 ║\n");
-        help.append("╚══════════════════════════════════════════════════════════════╝\n");
+        
+        if (supportsUTF8()) {
+            help.append("╔══════════════════════════════════════════════════════════════╗\n");
+            help.append("║                        HELP & COMMANDS                       ║\n");
+            help.append("╠══════════════════════════════════════════════════════════════╣\n");
+            help.append("║  BUILT-IN COMMANDS:                                          ║\n");
+            help.append("║    help, ?          - Show this help message                 ║\n");
+            help.append("║    status           - Show module availability status        ║\n");
+            help.append("║    history          - Show command history                   ║\n");
+            help.append("║    clear, cls       - Clear the screen                       ║\n");
+            help.append("║    version          - Show application version               ║\n");
+            help.append("║    exit, quit       - Exit the application                   ║\n");
+            help.append("║                                                              ║\n");
+            help.append("║  HISTORY NAVIGATION:                                         ║\n");
+            help.append("║    !n               - Execute command number n from history  ║\n");
+            help.append("║    !!               - Execute the last command               ║\n");
+            help.append("║                                                              ║\n");
+            help.append("║  SECURITY ANALYSIS COMMANDS:                                 ║\n");
+            help.append("║    Binary Analysis:                                          ║\n");
+            help.append("║      \"Analyze /path/to/binary with ghidra\"                   ║\n");
+            help.append("║      \"Reverse engineer /path/to/executable\"                 ║\n");
+            help.append("║                                                              ║\n");
+            help.append("║    Embedding Generation:                                     ║\n");
+            help.append("║      \"Embed this text: \\\"sample text\\\"\"                    ║\n");
+            help.append("║      \"Generate vector for: \\\"security analysis\\\"\"          ║\n");
+            help.append("║                                                              ║\n");
+            help.append("║    Vector Database Search:                                   ║\n");
+            help.append("║      \"Search for documents about buffer overflow\"           ║\n");
+            help.append("║      \"Find similar to: \\\"SQL injection techniques\\\"\"        ║\n");
+            help.append("║                                                              ║\n");
+            help.append("║    LLM Generation:                                           ║\n");
+            help.append("║      \"Generate a summary of XSS vulnerabilities\"            ║\n");
+            help.append("║      \"Explain how to perform a port scan\"                   ║\n");
+            help.append("║                                                              ║\n");
+            help.append("║    General Chat:                                             ║\n");
+            help.append("║      \"Hello, how can you help me with security?\"            ║\n");
+            help.append("║      \"What are common web vulnerabilities?\"                 ║\n");
+            help.append("╚══════════════════════════════════════════════════════════════╝\n");
+        } else {
+            help.append("+==============================================================+\n");
+            help.append("|                        HELP & COMMANDS                       |\n");
+            help.append("+==============================================================+\n");
+            help.append("|  BUILT-IN COMMANDS:                                          |\n");
+            help.append("|    help, ?          - Show this help message                 |\n");
+            help.append("|    status           - Show module availability status        |\n");
+            help.append("|    history          - Show command history                   |\n");
+            help.append("|    clear, cls       - Clear the screen                       |\n");
+            help.append("|    version          - Show application version               |\n");
+            help.append("|    exit, quit       - Exit the application                   |\n");
+            help.append("|                                                              |\n");
+            help.append("|  HISTORY NAVIGATION:                                         |\n");
+            help.append("|    !n               - Execute command number n from history  |\n");
+            help.append("|    !!               - Execute the last command               |\n");
+            help.append("|                                                              |\n");
+            help.append("|  SECURITY ANALYSIS COMMANDS:                                 |\n");
+            help.append("|    Binary Analysis:                                          |\n");
+            help.append("|      \"Analyze /path/to/binary with ghidra\"                   |\n");
+            help.append("|      \"Reverse engineer /path/to/executable\"                 |\n");
+            help.append("|                                                              |\n");
+            help.append("|    Embedding Generation:                                     |\n");
+            help.append("|      \"Embed this text: \\\"sample text\\\"\"                    |\n");
+            help.append("|      \"Generate vector for: \\\"security analysis\\\"\"          |\n");
+            help.append("|                                                              |\n");
+            help.append("|    Vector Database Search:                                   |\n");
+            help.append("|      \"Search for documents about buffer overflow\"           |\n");
+            help.append("|      \"Find similar to: \\\"SQL injection techniques\\\"\"        |\n");
+            help.append("|                                                              |\n");
+            help.append("|    LLM Generation:                                           |\n");
+            help.append("|      \"Generate a summary of XSS vulnerabilities\"            |\n");
+            help.append("|      \"Explain how to perform a port scan\"                   |\n");
+            help.append("|                                                              |\n");
+            help.append("|    General Chat:                                             |\n");
+            help.append("|      \"Hello, how can you help me with security?\"            |\n");
+            help.append("|      \"What are common web vulnerabilities?\"                 |\n");
+            help.append("+==============================================================+\n");
+        }
         
         return help.toString();
     }
@@ -363,17 +424,32 @@ public class Main {
      */
     private static String displayStatus(MCPOrchestrator orchestrator) {
         StringBuilder status = new StringBuilder();
-        status.append("╔══════════════════════════════════════════════════════════════╗\n");
-        status.append("║                      MODULE STATUS                          ║\n");
-        status.append("╠══════════════════════════════════════════════════════════════╣\n");
-        status.append("║  LLM (LlamaJNI):     ").append(LlamaJNI.isLibraryLoaded() ? "✓ Available" : "✗ Not available").append("                    ║\n");
-        status.append("║  Embedding Client:   ✓ Available                            ║\n");
-        status.append("║  Vector Database:    ✓ Available                            ║\n");
-        status.append("║  Ghidra Bridge:      ✓ Available                            ║\n");
-        status.append("║                                                              ║\n");
-        status.append("║  Application:        ").append(APP_NAME).append(" v").append(VERSION).append("                    ║\n");
-        status.append("║  Log File:           chatbot.log                            ║\n");
-        status.append("╚══════════════════════════════════════════════════════════════╝\n");
+        
+        if (supportsUTF8()) {
+            status.append("╔══════════════════════════════════════════════════════════════╗\n");
+            status.append("║                      MODULE STATUS                          ║\n");
+            status.append("╠══════════════════════════════════════════════════════════════╣\n");
+            status.append("║  LLM (LlamaJNI):     ").append(LlamaJNI.isLibraryLoaded() ? "✓ Available" : "✗ Not available").append("                    ║\n");
+            status.append("║  Embedding Client:   ✓ Available                            ║\n");
+            status.append("║  Vector Database:    ✓ Available                            ║\n");
+            status.append("║  Ghidra Bridge:      ✓ Available                            ║\n");
+            status.append("║                                                              ║\n");
+            status.append("║  Application:        ").append(APP_NAME).append(" v").append(VERSION).append("                    ║\n");
+            status.append("║  Log File:           chatbot.log                            ║\n");
+            status.append("╚══════════════════════════════════════════════════════════════╝\n");
+        } else {
+            status.append("+==============================================================+\n");
+            status.append("|                      MODULE STATUS                          |\n");
+            status.append("+==============================================================+\n");
+            status.append("|  LLM (LlamaJNI):     ").append(LlamaJNI.isLibraryLoaded() ? "* Available" : "X Not available").append("                    |\n");
+            status.append("|  Embedding Client:   * Available                            |\n");
+            status.append("|  Vector Database:    * Available                            |\n");
+            status.append("|  Ghidra Bridge:      * Available                            |\n");
+            status.append("|                                                              |\n");
+            status.append("|  Application:        ").append(APP_NAME).append(" v").append(VERSION).append("                    |\n");
+            status.append("|  Log File:           chatbot.log                            |\n");
+            status.append("+==============================================================+\n");
+        }
         
         return status.toString();
     }

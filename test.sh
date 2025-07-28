@@ -58,24 +58,82 @@ print_status() {
 # Print test header
 print_test_header() {
     echo
-    print_status "HEADER" "╔══════════════════════════════════════════════════════════════╗"
-    print_status "HEADER" "║                    Agent-Orange Test Suite                      ║"
-    print_status "HEADER" "╠══════════════════════════════════════════════════════════════╣"
-    print_status "HEADER" "║  Date: $(date)                                    ║"
-    print_status "HEADER" "╚══════════════════════════════════════════════════════════════╝"
+    # Check if terminal supports UTF-8, otherwise use ASCII fallback
+    if [[ "$LANG" =~ [Uu][Tt][Ff]-?8 ]] && [[ "$TERM" != "dumb" ]]; then
+        print_status "HEADER" "╔════════════════════════════════════════════════════════════════════╗"
+        print_status "HEADER" "║                        Agent-Orange Test Suite                        ║"
+        print_status "HEADER" "╠════════════════════════════════════════════════════════════════════╣"
+        local date_str="$(date)"
+        local date_content="Date: $date_str"
+        local padding=$((68 - ${#date_content}))
+        printf -v date_line "║  %s%*s║" "$date_content" $padding ""
+        print_status "HEADER" "$date_line"
+        print_status "HEADER" "╚════════════════════════════════════════════════════════════════════╝"
+    else
+        # ASCII fallback for terminals without UTF-8 support
+        print_status "HEADER" "+====================================================================+"
+        print_status "HEADER" "|                        Agent-Orange Test Suite                        |"
+        print_status "HEADER" "+====================================================================+"
+        local date_str="$(date)"
+        local date_content="Date: $date_str"
+        local padding=$((68 - ${#date_content}))
+        printf -v date_line "|  %s%*s|" "$date_content" $padding ""
+        print_status "HEADER" "$date_line"
+        print_status "HEADER" "+====================================================================+"
+    fi
     echo
 }
 
 # Print test footer
 print_test_footer() {
     echo
-    print_status "HEADER" "╔══════════════════════════════════════════════════════════════╗"
-    print_status "HEADER" "║                        Test Summary                            ║"
-    print_status "HEADER" "╠══════════════════════════════════════════════════════════════╣"
-    print_status "HEADER" "║  Total Tests: $TOTAL_TESTS                                           ║"
-    print_status "HEADER" "║  Passed: $PASSED_TESTS                                           ║"
-    print_status "HEADER" "║  Failed: $FAILED_TESTS                                           ║"
-    print_status "HEADER" "╚══════════════════════════════════════════════════════════════╝"
+    # Check if terminal supports UTF-8, otherwise use ASCII fallback
+    if [[ "$LANG" =~ [Uu][Tt][Ff]-?8 ]] && [[ "$TERM" != "dumb" ]]; then
+        print_status "HEADER" "╔════════════════════════════════════════════════════════════════════╗"
+        print_status "HEADER" "║                            Test Summary                            ║"
+        print_status "HEADER" "╠════════════════════════════════════════════════════════════════════╣"
+        
+        # Format test statistics with proper alignment
+        local total_content="Total Tests: $TOTAL_TESTS"
+        local passed_content="Passed: $PASSED_TESTS"
+        local failed_content="Failed: $FAILED_TESTS"
+        
+        local total_padding=$((68 - ${#total_content}))
+        local passed_padding=$((68 - ${#passed_content}))
+        local failed_padding=$((68 - ${#failed_content}))
+        
+        printf -v total_line "║  %s%*s║" "$total_content" $total_padding ""
+        printf -v passed_line "║  %s%*s║" "$passed_content" $passed_padding ""
+        printf -v failed_line "║  %s%*s║" "$failed_content" $failed_padding ""
+        
+        print_status "HEADER" "$total_line"
+        print_status "HEADER" "$passed_line"
+        print_status "HEADER" "$failed_line"
+        print_status "HEADER" "╚════════════════════════════════════════════════════════════════════╝"
+    else
+        # ASCII fallback for terminals without UTF-8 support
+        print_status "HEADER" "+====================================================================+"
+        print_status "HEADER" "|                            Test Summary                            |"
+        print_status "HEADER" "+====================================================================+"
+        
+        # Format test statistics with proper alignment
+        local total_content="Total Tests: $TOTAL_TESTS"
+        local passed_content="Passed: $PASSED_TESTS"
+        local failed_content="Failed: $FAILED_TESTS"
+        
+        local total_padding=$((68 - ${#total_content}))
+        local passed_padding=$((68 - ${#passed_content}))
+        local failed_padding=$((68 - ${#failed_content}))
+        
+        printf -v total_line "|  %s%*s|" "$total_content" $total_padding ""
+        printf -v passed_line "|  %s%*s|" "$passed_content" $passed_padding ""
+        printf -v failed_line "|  %s%*s|" "$failed_content" $failed_padding ""
+        
+        print_status "HEADER" "$total_line"
+        print_status "HEADER" "$passed_line"
+        print_status "HEADER" "$failed_line"
+        print_status "HEADER" "+====================================================================+"
+    fi
     echo
 }
 

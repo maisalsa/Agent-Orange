@@ -187,22 +187,22 @@ test_utf8_display() {
     
     if [[ "$TERMINAL_SUPPORTS_UTF8" == true ]]; then
         print_status "SUCCESS" "UTF-8 characters should display correctly:"
-        echo -e "  ╔══════════════════════════════════════════════════════════════╗"
-        echo -e "  ║                    Test UTF-8 Display                        ║"
-        echo -e "  ╠══════════════════════════════════════════════════════════════╣"
-        echo -e "  ║  ✓ UTF-8 box drawing characters                              ║"
-        echo -e "  ║  ✓ Unicode symbols: ★ ☆ ♠ ♥ ♦ ♣                              ║"
-        echo -e "  ║  ✓ Special characters: → ← ↑ ↓ ↔ ↕                           ║"
-        echo -e "  ╚══════════════════════════════════════════════════════════════╝"
+        echo -e "  ╔════════════════════════════════════════════════════════════════╗"
+        echo -e "  ║                        Test UTF-8 Display                      ║"
+        echo -e "  ╠════════════════════════════════════════════════════════════════╣"
+        echo -e "  ║  ✓ UTF-8 box drawing characters                                ║"
+        echo -e "  ║  ✓ Unicode symbols: ★ ☆ ♠ ♥ ♦ ♣                                ║"
+        echo -e "  ║  ✓ Special characters: → ← ↑ ↓ ↔ ↕                             ║"
+        echo -e "  ╚════════════════════════════════════════════════════════════════╝"
     else
         print_status "WARNING" "UTF-8 not supported, using ASCII fallback:"
-        echo "  +==============================================================+"
-        echo "  |                    Test ASCII Display                        |"
-        echo "  +==============================================================+"
-        echo "  |  * ASCII box drawing characters                              |"
-        echo "  |  * Basic symbols: * # @ % &                                   |"
-        echo "  |  * Simple characters: -> <- ^ v                               |"
-        echo "  +==============================================================+"
+        echo "  +================================================================+"
+        echo "  |                        Test ASCII Display                      |"
+        echo "  +================================================================+"
+        echo "  |  * ASCII box drawing characters                                |"
+        echo "  |  * Basic symbols: * # @ % &                                    |"
+        echo "  |  * Simple characters: -> <- ^ v                                |"
+        echo "  +================================================================+"
     fi
 }
 
