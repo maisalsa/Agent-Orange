@@ -100,6 +100,163 @@ public class GhidraBridge {
     }
 
     /**
+     * Create a GhidraBridge using configuration from application.properties or environment variables.
+     * Configuration precedence (highest to lowest):
+     * 1. Environment variables: GHIDRA_HOME, GHIDRA_ANALYZE_HEADLESS
+     * 2. System properties: ghidra.home, ghidra.headless.path
+     * 3. application.properties file
+     * 4. Default paths based on common installation locations
+     *
+     * Environment variables:
+     * - GHIDRA_HOME: Path to Ghidra installation directory (e.g., /opt/ghidra)
+     * - GHIDRA_ANALYZE_HEADLESS: Full path to analyzeHeadless script
+     * - GHIDRA_PROJECT_DIR: Directory for Ghidra projects (optional, defaults to /tmp/ghidra_proj)
+     * - GHIDRA_PROJECT_NAME: Project name (optional, defaults to agent_orange_analysis)
+     *
+     * System properties:
+     * - ghidra.home: Path to Ghidra installation directory
+     * - ghidra.headless.path: Full path to analyzeHeadless script
+     * - ghidra.project.dir: Directory for Ghidra projects
+     * - ghidra.project.name: Project name
+     */
+    public static GhidraBridge fromConfig() {
+        String headlessPath = null;
+        String projectDir = null;
+        String projectName = null;
+        
+        // Priority 1: Environment variables (highest precedence)
+        String ghidraHome = System.getenv("GHIDRA_HOME");
+        String ghidraHeadless = System.getenv("GHIDRA_ANALYZE_HEADLESS");
+        String ghidraProjectDir = System.getenv("GHIDRA_PROJECT_DIR");
+        String ghidraProjectName = System.getenv("GHIDRA_PROJECT_NAME");
+        
+        if (ghidraHeadless != null && !ghidraHeadless.isEmpty()) {
+            headlessPath = ghidraHeadless;
+        } else if (ghidraHome != null && !ghidraHome.isEmpty()) {
+            // Construct path from GHIDRA_HOME
+            headlessPath = ghidraHome + "/support/analyzeHeadless";
+        }
+        
+        if (ghidraProjectDir != null && !ghidraProjectDir.isEmpty()) {
+            projectDir = ghidraProjectDir;
+        }
+        
+        if (ghidraProjectName != null && !ghidraProjectName.isEmpty()) {
+            projectName = ghidraProjectName;
+        }
+        
+        // Priority 2: System properties
+        if (headlessPath == null) {
+            String systemGhidraHome = System.getProperty("ghidra.home");
+            String systemHeadlessPath = System.getProperty("ghidra.headless.path");
+            
+            if (systemHeadlessPath != null && !systemHeadlessPath.isEmpty()) {
+                headlessPath = systemHeadlessPath;
+            } else if (systemGhidraHome != null && !systemGhidraHome.isEmpty()) {
+                headlessPath = systemGhidraHome + "/support/analyzeHeadless";
+            }
+        }
+        
+        if (projectDir == null) {
+            projectDir = System.getProperty("ghidra.project.dir");
+        }
+        
+        if (projectName == null) {
+            projectName = System.getProperty("ghidra.project.name");
+        }
+        
+        // Priority 3: application.properties file
+        if (headlessPath == null || projectDir == null || projectName == null) {
+            try (java.io.InputStream in = new java.io.FileInputStream("application.properties")) {
+                java.util.Properties props = new java.util.Properties();
+                props.load(in);
+                
+                if (headlessPath == null) {
+                    String propHeadlessPath = props.getProperty("ghidra.headless.path");
+                    if (propHeadlessPath != null && !propHeadlessPath.isEmpty()) {
+                        headlessPath = propHeadlessPath;
+                    }
+                }
+                
+                if (projectDir == null) {
+                    String propProjectDir = props.getProperty("ghidra.project.dir");
+                    if (propProjectDir != null && !propProjectDir.isEmpty()) {
+                        projectDir = propProjectDir;
+                    }
+                }
+                
+                if (projectName == null) {
+                    String propProjectName = props.getProperty("ghidra.project.name");
+                    if (propProjectName != null && !propProjectName.isEmpty()) {
+                        projectName = propProjectName;
+                    }
+                }
+                
+            } catch (java.io.IOException ignored) {
+                // Properties file not found or unreadable - continue to defaults
+            }
+        }
+        
+        // Priority 4: Default fallback paths
+        if (headlessPath == null) {
+            // Try common installation locations
+            String[] commonPaths = {
+                "/opt/ghidra/support/analyzeHeadless",           // Linux standard
+                "/usr/local/ghidra/support/analyzeHeadless",    // Linux alternative
+                "/Applications/ghidra/support/analyzeHeadless", // macOS
+                "C:\\ghidra\\support\\analyzeHeadless.bat",     // Windows
+                "C:\\Program Files\\ghidra\\support\\analyzeHeadless.bat" // Windows Program Files
+            };
+            
+            for (String path : commonPaths) {
+                if (new java.io.File(path).exists()) {
+                    headlessPath = path;
+                    break;
+                }
+            }
+            
+            // If still not found, use the configured path (will fail validation if not exists)
+            if (headlessPath == null) {
+                headlessPath = "/opt/ghidra/support/analyzeHeadless";
+            }
+        }
+        
+        if (projectDir == null) {
+            projectDir = "/tmp/ghidra_proj";
+        }
+        
+        if (projectName == null) {
+            projectName = "agent_orange_analysis";
+        }
+        
+        // Get timeout configuration
+        long timeoutMs = DEFAULT_TIMEOUT_MS;
+        String timeoutStr = System.getProperty("ghidra.timeout.ms");
+        if (timeoutStr == null || timeoutStr.isEmpty()) {
+            timeoutStr = System.getenv("GHIDRA_TIMEOUT_MS");
+        }
+        if (timeoutStr == null || timeoutStr.isEmpty()) {
+            try (java.io.InputStream in = new java.io.FileInputStream("application.properties")) {
+                java.util.Properties props = new java.util.Properties();
+                props.load(in);
+                timeoutStr = props.getProperty("ghidra.timeout.ms");
+            } catch (java.io.IOException ignored) {
+                // Properties file not found - use default
+            }
+        }
+        
+        if (timeoutStr != null && !timeoutStr.isEmpty()) {
+            try {
+                timeoutMs = Long.parseLong(timeoutStr);
+            } catch (NumberFormatException e) {
+                System.err.println("Warning: Invalid timeout value '" + timeoutStr + "', using default " + DEFAULT_TIMEOUT_MS);
+            }
+        }
+        
+        return new GhidraBridge(headlessPath, projectDir, projectName, timeoutMs);
+    }
+
+    /**
      * Validates that all required paths and permissions are available.
      * 
      * @throws IllegalArgumentException if configuration is invalid

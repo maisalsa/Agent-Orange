@@ -484,11 +484,7 @@ public class MCPOrchestrator {
             LlamaJNI llama = new LlamaJNI();
             EmbeddingClient embeddingClient = new EmbeddingClient();
             ChromaDBClient chromaDBClient = ChromaDBClient.fromConfig();
-            GhidraBridge ghidraBridge = new GhidraBridge(
-                "/opt/ghidra/support/analyzeHeadless", 
-                "/tmp/ghidra_projects", 
-                "test_project"
-            );
+            GhidraBridge ghidraBridge = GhidraBridge.fromConfig();
             
             // Create orchestrator
             MCPOrchestrator orchestrator = new MCPOrchestrator(

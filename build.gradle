@@ -25,8 +25,13 @@ application {
     applicationDefaultJvmArgs = [
         '-Xmx4g',
         '-Xms2g',
-        '-Djava.library.path=bin'
-    ]
+        '-Djava.library.path=bin',
+        // Ghidra configuration via system properties
+        project.hasProperty('ghidra.home') ? "-Dghidra.home=${project.property('ghidra.home')}" : '',
+        project.hasProperty('ghidra.headless.path') ? "-Dghidra.headless.path=${project.property('ghidra.headless.path')}" : '',
+        project.hasProperty('ghidra.project.dir') ? "-Dghidra.project.dir=${project.property('ghidra.project.dir')}" : '',
+        project.hasProperty('ghidra.project.name') ? "-Dghidra.project.name=${project.property('ghidra.project.name')}" : ''
+    ].findAll { it != '' }  // Remove empty strings
 }
 
 // Repository configuration with security considerations

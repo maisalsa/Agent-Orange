@@ -140,11 +140,7 @@ public class Main {
             logger.info("Vector database client initialized");
             
             // Initialize Ghidra bridge
-            GhidraBridge ghidraBridge = new GhidraBridge(
-                "/opt/ghidra/support/analyzeHeadless", 
-                "/tmp/ghidra_projects", 
-                "pentesting_project"
-            );
+            GhidraBridge ghidraBridge = GhidraBridge.fromConfig();
             logger.info("Ghidra bridge initialized");
             
             // Create orchestrator
