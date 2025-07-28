@@ -23,15 +23,26 @@ java {
 application {
     mainClass = 'com.example.Main'
     applicationDefaultJvmArgs = [
-        '-Xmx4g',
-        '-Xms2g',
-        '-Djava.library.path=bin',
-        // Ghidra configuration via system properties
-        project.hasProperty('ghidra.home') ? "-Dghidra.home=${project.property('ghidra.home')}" : '',
-        project.hasProperty('ghidra.headless.path') ? "-Dghidra.headless.path=${project.property('ghidra.headless.path')}" : '',
-        project.hasProperty('ghidra.project.dir') ? "-Dghidra.project.dir=${project.property('ghidra.project.dir')}" : '',
-        project.hasProperty('ghidra.project.name') ? "-Dghidra.project.name=${project.property('ghidra.project.name')}" : ''
-    ].findAll { it != '' }  // Remove empty strings
+    // Memory configuration optimized for i7-7700T with 16-32GB RAM
+    '-Xmx6g',                           // Reduced from 4g to leave room for ChromaDB/Ghidra
+    '-Xms1g',                           // Conservative initial heap
+    '-XX:+UseG1GC',                     // Low-latency garbage collector
+    '-XX:MaxGCPauseMillis=200',         // Target max GC pause time
+    '-XX:+UseStringDeduplication',      // Save memory on duplicate strings
+    '-XX:+UnlockExperimentalVMOptions', // Enable experimental optimizations
+    '-XX:G1HeapRegionSize=16m',         // Optimize for available cores
+    '-XX:ConcGCThreads=2',              // Use 2 concurrent GC threads (50% of cores)
+    '-XX:ParallelGCThreads=4',          // Use all 4 cores for parallel GC
+    '-Djava.library.path=bin',
+    // CPU-specific optimizations
+    '-XX:+UseFastAccessorMethods',      // Faster field access
+    '-XX:+OptimizeStringConcat',        // Optimize string operations
+    // Ghidra configuration via system properties
+    project.hasProperty('ghidra.home') ? "-Dghidra.home=${project.property('ghidra.home')}" : '',
+    project.hasProperty('ghidra.headless.path') ? "-Dghidra.headless.path=${project.property('ghidra.headless.path')}" : '',
+    project.hasProperty('ghidra.project.dir') ? "-Dghidra.project.dir=${project.property('ghidra.project.dir')}" : '',
+    project.hasProperty('ghidra.project.name') ? "-Dghidra.project.name=${project.property('ghidra.project.name')}" : ''
+].findAll { it != '' }  // Remove empty strings
 }
 
 // Repository configuration with security considerations
@@ -108,7 +119,7 @@ compileTestJava {
     options.compilerArgs += ['-Xlint:all']
 }
 
-// JAR configuration with proper manifest
+// JAR configuration for complete offline operation
 jar {
     archiveFileName = 'chatbot.jar'
     destinationDirectory = file('bin')
@@ -117,19 +128,53 @@ jar {
         attributes(
             'Main-Class': 'com.example.Main',
             'Implementation-Title': project.name,
-            'Implementation-Version': project.version,
+            'Implementation-Version': project.version + '-OFFLINE',
             'Built-By': System.getProperty('user.name'),
             'Built-Date': new Date().toString(),
-            'Built-JDK': System.getProperty('java.version')
+            'Built-JDK': System.getProperty('java.version'),
+            'Agent-Orange-Mode': 'STANDALONE-OFFLINE',
+            'Bundle-Native-Libraries': 'true'
         )
     }
     
-    // Include all dependencies in the JAR
+    // Include ALL runtime dependencies (fat JAR for offline use)
     from {
         configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
     }
     
+    // Bundle native libraries directly in JAR
+    from('bin') {
+        into 'native-libs'
+        include '*.so', '*.dll', '*.dylib'
+    }
+    
+    // Bundle local embedding models
+    from('models') {
+        into 'models'
+        include '**/*'
+        exclude '*.tmp', '*.lock'
+    }
+    
+    // Bundle Ghidra scripts and configurations
+    from('main') {
+        into 'ghidra-scripts'
+        include 'ExtractFunctions.java'
+    }
+    
+    // Bundle configuration files
+    from('.') {
+        into 'config'
+        include 'application.properties'
+        include 'offline-config.properties'
+    }
+    
     duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+    
+    // Exclude conflicting files for clean offline operation
+    exclude 'META-INF/*.RSA', 'META-INF/*.SF', 'META-INF/*.DSA'
+    exclude 'META-INF/LICENSE*'
+    exclude 'META-INF/NOTICE*'
+    exclude '**/module-info.class'
 }
 
 // Native library management
@@ -321,6 +366,21 @@ dependencyUpdates {
                 }
             }
         }
+    }
+}
+
+// Offline build task for ThinkStation P320
+task buildOffline {
+    description = 'Build Agent-Orange for complete offline operation'
+    group = 'distribution'
+    
+    dependsOn clean, compileJava, jar, copyNativeLibs
+    
+    doLast {
+        println "✅ Agent-Orange built for offline operation"
+        println "📁 JAR location: bin/chatbot.jar"
+        println "🔧 Run: ./setup_offline.sh to configure offline mode"
+        println "🚀 Run: ./run_offline.sh to start in offline mode"
     }
 }
 
