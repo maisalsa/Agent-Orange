@@ -1,0 +1,21 @@
+# Ghidra Offline Configuration for ThinkStation P320
+# Disable all network features
+
+# Update and repository settings
+UPDATES_CHECK_FOR_UPDATES=false
+UPDATES_DOWNLOAD_UPDATES=false
+UPDATES_REPOSITORY_URLS=
+
+# Analysis settings optimized for i7-7700T
+ANALYSIS_PARALLEL_THREAD_COUNT=4
+ANALYSIS_MAX_MEMORY_GB=3
+ANALYSIS_TIMEOUT_MINUTES=5
+
+# Disable external tools and network dependencies
+EXTERNAL_TOOLS_ENABLED=false
+COLLABORATION_ENABLED=false
+NETWORK_DISCOVERY_ENABLED=false
+SYMBOL_SERVER_ENABLED=false
+
+# Local script directories
+SCRIPT_DIRECTORIES=/workspace/main:/workspace/ghidra-scripts

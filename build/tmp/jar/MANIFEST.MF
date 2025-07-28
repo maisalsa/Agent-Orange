@@ -1,8 +1,10 @@
 Manifest-Version: 1.0
 Main-Class: com.example.Main
 Implementation-Title: workspace
-Implementation-Version: 1.0.0
+Implementation-Version: 1.0.0-OFFLINE
 Built-By: ubuntu
-Built-Date: Mon Jul 28 14:54:35 UTC 2025
+Built-Date: Mon Jul 28 17:02:58 UTC 2025
 Built-JDK: 21.0.7
+Agent-Orange-Mode: STANDALONE-OFFLINE
+Bundle-Native-Libraries: true
 

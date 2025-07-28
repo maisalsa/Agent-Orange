@@ -1,0 +1,17 @@
+# ChromaDB Offline Configuration for ThinkStation P320
+persist_directory: "/workspace/data/chromadb/persist"
+chroma_db_impl: "duckdb+parquet"
+anonymized_telemetry: false
+allow_reset: true
+
+# Memory optimizations for i7-7700T
+settings:
+  chroma_memory_limit_bytes: 2147483648  # 2GB
+  chroma_segment_cache_policy: "LRU"
+  chroma_collection_cache_size: 100
+  
+# Disable network features
+chroma_server_host: null
+chroma_server_http_port: null
+chroma_server_ssl_enabled: false
+chroma_server_grpc_port: null
