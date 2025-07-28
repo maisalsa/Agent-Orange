@@ -1,19 +1,29 @@
 #!/bin/bash
 
 # ============================================================================
-# Agent-Orange Build Script
+# Agent-Orange Enhanced Build Script with Gradle Integration
 # ============================================================================
 #
-# This script compiles the Java project and creates the executable JAR file.
-# It handles dependency checking, compilation, and packaging.
+# This script provides a modern build system using Gradle for dependency 
+# management, compilation, testing, and packaging. It includes automatic
+# dependency management, security scanning, and native library handling.
 #
 # USAGE:
-#   ./build.sh
+#   ./build.sh [target]
+#
+# TARGETS:
+#   clean          - Clean build artifacts
+#   dependencies   - Download and verify dependencies
+#   compile        - Compile Java sources
+#   test           - Run test suite
+#   jar            - Create executable JAR
+#   security       - Run security scans
+#   all (default)  - Complete build with all steps
 #
 # DEPENDENCIES:
 #   - Java 17+ (OpenJDK)
-#   - javac compiler
-#   - jar tool
+#   - Gradle (auto-downloaded via wrapper)
+#   - GCC/G++ (for native libraries)
 # ============================================================================
 
 set -e  # Exit on any error
@@ -64,167 +74,229 @@ check_java() {
     print_status "SUCCESS" "Java $version found"
 }
 
-# Check if javac is available
-check_javac() {
-    if ! command -v javac >/dev/null 2>&1; then
-        print_status "ERROR" "javac not found. Please install Java Development Kit (JDK)."
-        exit 1
+# Check if GCC is available for native compilation
+check_gcc() {
+    if ! command -v gcc >/dev/null 2>&1; then
+        print_status "WARNING" "GCC not found. Native library compilation may fail."
+        print_status "INFO" "Install GCC: sudo apt-get install build-essential (Ubuntu/Debian)"
+        return 1
     fi
     
-    print_status "SUCCESS" "javac compiler found"
+    if ! command -v g++ >/dev/null 2>&1; then
+        print_status "WARNING" "G++ not found. Native library compilation may fail."
+        return 1
+    fi
+    
+    print_status "SUCCESS" "GCC/G++ compiler found"
+    return 0
 }
 
-# Check if jar tool is available
-check_jar() {
-    if ! command -v jar >/dev/null 2>&1; then
-        print_status "ERROR" "jar tool not found. Please install Java Development Kit (JDK)."
-        exit 1
+# Initialize Gradle wrapper if needed
+init_gradle() {
+    print_status "INFO" "Initializing Gradle build system..."
+    
+    # Download Gradle wrapper if not present
+    if [[ ! -f "gradlew" ]]; then
+        print_status "INFO" "Downloading Gradle wrapper..."
+        if command -v gradle >/dev/null 2>&1; then
+            gradle wrapper --gradle-version 8.6
+        else
+            # Download wrapper manually
+            curl -s -L https://services.gradle.org/distributions/gradle-8.6-bin.zip -o gradle.zip
+            unzip -q gradle.zip
+            mv gradle-8.6 gradle
+            rm gradle.zip
+            chmod +x gradle/bin/gradle
+            gradle/bin/gradle wrapper
+            rm -rf gradle
+        fi
+        chmod +x gradlew
     fi
     
-    print_status "SUCCESS" "jar tool found"
+    print_status "SUCCESS" "Gradle wrapper ready"
 }
 
-# Create necessary directories
-create_directories() {
-    print_status "INFO" "Creating build directories..."
-    
-    mkdir -p bin
-    mkdir -p logs
-    mkdir -p tmp
-    mkdir -p lib
-    
-    print_status "SUCCESS" "Directories created"
+# Gradle build functions
+gradle_clean() {
+    print_status "INFO" "Cleaning build artifacts..."
+    ./gradlew clean
+    print_status "SUCCESS" "Clean completed"
 }
 
-# Check for external dependencies
-check_dependencies() {
-    print_status "INFO" "Checking external dependencies..."
-    
-    # Check if Gson is available (required for ChromaDBClient)
-    if ! javac -cp ".:lib/*" -d bin main/ChromaDBClient.java 2>/dev/null; then
-        print_status "WARNING" "Gson dependency not found. ChromaDBClient may not compile."
-        print_status "INFO" "Download Gson: wget https://repo1.maven.org/maven2/com/google/code/gson/gson/2.10.1/gson-2.10.1.jar -O lib/gson-2.10.1.jar"
-    fi
-    
-    # Check if JUnit is available (required for tests)
-    if ! javac -cp ".:lib/*" -d bin main/TestMain.java 2>/dev/null; then
-        print_status "WARNING" "JUnit dependency not found. Tests may not compile."
-        print_status "INFO" "Download JUnit: wget https://repo1.maven.org/maven2/junit/junit/4.13.2/junit-4.13.2.jar -O lib/junit-4.13.2.jar"
-    fi
+gradle_download_dependencies() {
+    print_status "INFO" "Downloading and verifying dependencies..."
+    ./gradlew downloadDependencies
+    print_status "SUCCESS" "Dependencies downloaded"
 }
 
-# Compile Java source files
-compile_java() {
-    print_status "INFO" "Compiling Java source files..."
+gradle_compile() {
+    print_status "INFO" "Compiling Java sources with dependency management..."
+    ./gradlew compileJava
+    print_status "SUCCESS" "Compilation completed"
+}
+
+gradle_test() {
+    print_status "INFO" "Running test suite..."
+    ./gradlew test
+    print_status "SUCCESS" "Tests completed"
+}
+
+gradle_jar() {
+    print_status "INFO" "Creating executable JAR with all dependencies..."
+    ./gradlew jar
+    print_status "SUCCESS" "JAR created: bin/chatbot.jar"
+}
+
+gradle_security_check() {
+    print_status "INFO" "Running security scans on dependencies..."
+    ./gradlew securityCheck
+    print_status "SUCCESS" "Security check completed"
+}
+
+gradle_list_dependencies() {
+    print_status "INFO" "Listing all project dependencies..."
+    ./gradlew listDependencies
+}
+
+# Native library compilation
+compile_native_libs() {
+    print_status "INFO" "Compiling native libraries..."
     
-    # Find all Java files in main directory
-    local java_files=$(find main -name "*.java" -type f)
-    
-    if [[ -z "$java_files" ]]; then
-        print_status "ERROR" "No Java source files found in main/ directory"
-        exit 1
-    fi
-    
-    # Compile with error reporting and dependencies
-    if javac -d bin -cp ".:bin:lib/*" $java_files 2>logs/compile_errors.log; then
-        print_status "SUCCESS" "Java compilation completed"
-        rm -f logs/compile_errors.log
+    if check_gcc; then
+        if ./gradlew compileJNI 2>/dev/null; then
+            print_status "SUCCESS" "Native libraries compiled"
+        else
+            print_status "WARNING" "Native library compilation skipped"
+            print_status "INFO" "This is normal if llama.cpp is not installed locally"
+            print_status "INFO" "The application can still run with external native libraries"
+            print_status "INFO" "To enable JNI compilation, install llama.cpp and copy headers to main/"
+        fi
     else
-        print_status "ERROR" "Java compilation failed. Check logs/compile_errors.log"
-        cat logs/compile_errors.log
-        exit 1
+        print_status "WARNING" "Skipping native library compilation (GCC not available)"
+        print_status "INFO" "The application may still work if native libraries are provided separately"
     fi
 }
 
-# Create JAR file
-create_jar() {
-    print_status "INFO" "Creating JAR file..."
+# Complete build process
+gradle_build_all() {
+    print_status "INFO" "Running complete build process..."
     
-    # Check if compiled classes exist
-    if [[ ! -d "bin" ]] || [[ -z "$(ls -A bin 2>/dev/null)" ]]; then
-        print_status "ERROR" "No compiled classes found. Run compilation first."
-        exit 1
-    fi
+    gradle_clean
+    gradle_download_dependencies
+    gradle_compile
+    compile_native_libs
+    gradle_test
+    gradle_jar
     
-    # Create JAR with manifest
-    if jar cf bin/chatbot.jar -C bin .; then
-        print_status "SUCCESS" "JAR file created: bin/chatbot.jar"
-    else
-        print_status "ERROR" "Failed to create JAR file"
-        exit 1
-    fi
+    print_status "SUCCESS" "Complete build finished successfully!"
 }
 
-# Create executable JAR with main class
-create_executable_jar() {
-    print_status "INFO" "Creating executable JAR..."
-    
-    # Create manifest file
-    cat > tmp/manifest.txt << EOF
-Manifest-Version: 1.0
-Main-Class: com.example.Main
-Class-Path: .
-
-EOF
-    
-    # Create executable JAR
-    if jar cfm bin/chatbot.jar tmp/manifest.txt -C bin .; then
-        print_status "SUCCESS" "Executable JAR created: bin/chatbot.jar"
-        chmod +x bin/chatbot.jar
-    else
-        print_status "ERROR" "Failed to create executable JAR"
-        exit 1
-    fi
-    
-    # Clean up
-    rm -f tmp/manifest.txt
-}
-
-# Verify build
-verify_build() {
-    print_status "INFO" "Verifying build..."
-    
-    if [[ -f "bin/chatbot.jar" ]]; then
-        print_status "SUCCESS" "Build verification passed"
-        print_status "INFO" "JAR file size: $(du -h bin/chatbot.jar | cut -f1)"
-    else
-        print_status "ERROR" "Build verification failed - JAR file not found"
-        exit 1
-    fi
+# Display help information
+show_help() {
+    echo
+    echo "Agent-Orange Enhanced Build System"
+    echo "================================="
+    echo
+    echo "USAGE: $0 [target]"
+    echo
+    echo "TARGETS:"
+    echo "  clean          - Clean all build artifacts"
+    echo "  dependencies   - Download and verify all dependencies"
+    echo "  compile        - Compile Java sources"
+    echo "  test           - Run the complete test suite"
+    echo "  jar            - Create executable JAR file"
+    echo "  security       - Run security scans on dependencies"
+    echo "  native         - Compile native libraries (JNI)"
+    echo "  list-deps      - List all project dependencies"
+    echo "  all            - Complete build (default)"
+    echo "  help           - Show this help message"
+    echo
+    echo "EXAMPLES:"
+    echo "  $0              # Run complete build"
+    echo "  $0 clean        # Clean build artifacts"
+    echo "  $0 security     # Check for vulnerable dependencies"
+    echo "  $0 test         # Run tests only"
+    echo
+    echo "FEATURES:"
+    echo "  - Automatic dependency management with Gradle"
+    echo "  - Security vulnerability scanning"
+    echo "  - Native library compilation (JNI)"
+    echo "  - Cross-platform support"
+    echo "  - Incremental builds"
+    echo
 }
 
 # Main build process
 main() {
+    local target="${1:-all}"
+    
     echo
-    print_status "INFO" "Starting Agent-Orange build process..."
+    print_status "INFO" "Starting Agent-Orange enhanced build system..."
+    print_status "INFO" "Target: $target"
     echo
     
-    # Check dependencies
+    # Check system dependencies
     check_java
-    check_javac
-    check_jar
+    check_gcc
     
-    # Create directories
-    create_directories
+    # Initialize Gradle
+    init_gradle
     
-    # Check dependencies
-    check_dependencies
-    
-    # Compile Java
-    compile_java
-    
-    # Create JAR
-    create_jar
-    
-    # Create executable JAR
-    create_executable_jar
-    
-    # Verify build
-    verify_build
+    # Execute based on target
+    case "$target" in
+        "clean")
+            gradle_clean
+            ;;
+        "dependencies")
+            gradle_download_dependencies
+            ;;
+        "compile")
+            gradle_download_dependencies
+            gradle_compile
+            ;;
+        "test")
+            gradle_download_dependencies
+            gradle_compile
+            gradle_test
+            ;;
+        "jar")
+            gradle_download_dependencies
+            gradle_compile
+            compile_native_libs
+            gradle_jar
+            ;;
+        "security")
+            gradle_download_dependencies
+            gradle_security_check
+            ;;
+        "native")
+            compile_native_libs
+            ;;
+        "list-deps")
+            gradle_list_dependencies
+            ;;
+        "all")
+            gradle_build_all
+            ;;
+        "help"|"-h"|"--help")
+            show_help
+            exit 0
+            ;;
+        *)
+            print_status "ERROR" "Unknown target: $target"
+            show_help
+            exit 1
+            ;;
+    esac
     
     echo
-    print_status "SUCCESS" "Build completed successfully!"
-    print_status "INFO" "You can now run: ./run_chatbot.sh"
+    print_status "SUCCESS" "Build target '$target' completed successfully!"
+    if [[ "$target" == "all" || "$target" == "jar" ]]; then
+        print_status "INFO" "You can now run: ./run_chatbot.sh"
+        if [[ -f "bin/chatbot.jar" ]]; then
+            print_status "INFO" "JAR file size: $(du -h bin/chatbot.jar | cut -f1)"
+        fi
+    fi
     echo
 }
 

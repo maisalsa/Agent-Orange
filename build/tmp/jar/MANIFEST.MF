@@ -1,0 +1,8 @@
+Manifest-Version: 1.0
+Main-Class: com.example.Main
+Implementation-Title: workspace
+Implementation-Version: 1.0.0
+Built-By: ubuntu
+Built-Date: Mon Jul 28 13:57:58 UTC 2025
+Built-JDK: 21.0.7
+

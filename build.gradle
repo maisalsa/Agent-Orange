@@ -1,0 +1,362 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'org.gradle.test-retry' version '1.5.8'
+    id 'com.github.ben-manes.versions' version '0.51.0'
+    id 'org.owasp.dependencycheck' version '9.0.9'
+}
+
+// Project configuration
+group = 'com.example'
+version = '1.0.0'
+description = 'Agent-Orange: Pentesting Chatbot with AI-driven analysis tools'
+
+// Java compatibility
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+    withSourcesJar()
+    withJavadocJar()
+}
+
+// Application configuration
+application {
+    mainClass = 'com.example.Main'
+    applicationDefaultJvmArgs = [
+        '-Xmx4g',
+        '-Xms2g',
+        '-Djava.library.path=bin'
+    ]
+}
+
+// Repository configuration with security considerations
+repositories {
+    mavenCentral()
+}
+
+// Dependency version management
+ext {
+    versions = [
+        gson: '2.10.1',
+        junit: '4.13.2',
+        hamcrest: '1.3',
+        slf4j: '2.0.12',
+        logback: '1.4.14',
+        commonsLang: '3.14.0',
+        commonsIo: '2.15.1',
+        jacksonCore: '2.16.1'
+    ]
+}
+
+dependencies {
+    // Core dependencies
+    implementation "com.google.code.gson:gson:${versions.gson}"
+    implementation "org.apache.commons:commons-lang3:${versions.commonsLang}"
+    implementation "commons-io:commons-io:${versions.commonsIo}"
+    
+    // Logging dependencies
+    implementation "org.slf4j:slf4j-api:${versions.slf4j}"
+    implementation "ch.qos.logback:logback-classic:${versions.logback}"
+    
+    // JSON processing (additional security)
+    implementation "com.fasterxml.jackson.core:jackson-core:${versions.jacksonCore}"
+    implementation "com.fasterxml.jackson.core:jackson-databind:${versions.jacksonCore}"
+    
+    // Test dependencies
+    testImplementation "junit:junit:${versions.junit}"
+    testImplementation "org.hamcrest:hamcrest-core:${versions.hamcrest}"
+    testRuntimeOnly "org.junit.vintage:junit-vintage-engine:5.10.2"
+}
+
+// Source sets configuration
+sourceSets {
+    main {
+        java {
+            srcDirs = ['main']
+            exclude '**/*Test.java'
+            exclude 'TestMain.java'
+            exclude 'ExtractFunctions.java'  // Ghidra script, not main application code
+        }
+        resources {
+            srcDirs = ['src/main/resources', '.']
+            include '*.properties'
+        }
+    }
+    test {
+        java {
+            srcDirs = ['main']
+            include '**/*Test.java'
+            include 'TestMain.java'
+        }
+    }
+}
+
+// Compilation configuration
+compileJava {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xlint:all', '-Xlint:-processing']
+    options.deprecation = true
+    options.warnings = true
+}
+
+compileTestJava {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xlint:all']
+}
+
+// JAR configuration with proper manifest
+jar {
+    archiveFileName = 'chatbot.jar'
+    destinationDirectory = file('bin')
+    
+    manifest {
+        attributes(
+            'Main-Class': 'com.example.Main',
+            'Implementation-Title': project.name,
+            'Implementation-Version': project.version,
+            'Built-By': System.getProperty('user.name'),
+            'Built-Date': new Date().toString(),
+            'Built-JDK': System.getProperty('java.version')
+        )
+    }
+    
+    // Include all dependencies in the JAR
+    from {
+        configurations.runtimeClasspath.collect { it.isDirectory() ? it : zipTree(it) }
+    }
+    
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+// Native library management
+task copyNativeLibs(type: Copy) {
+    description = 'Copy native libraries to bin directory'
+    group = 'build'
+    
+    from configurations.runtimeClasspath.filter { 
+        it.name.endsWith('.so') || it.name.endsWith('.dll') || it.name.endsWith('.dylib') 
+    }
+    into 'bin'
+}
+
+// Generate JNI header file
+task generateJNIHeader(type: Exec) {
+    description = 'Generate JNI header file'
+    group = 'build'
+    
+    commandLine 'javac', '-h', 'main', '-cp', 'build/classes/java/main', 'main/LlamaJNI.java'
+    
+    dependsOn compileJava
+    
+    inputs.files 'main/LlamaJNI.java'
+    outputs.files 'main/com_example_LlamaJNI.h'
+    
+    onlyIf {
+        !file('main/com_example_LlamaJNI.h').exists() || 
+        file('main/LlamaJNI.java').lastModified() > file('main/com_example_LlamaJNI.h').lastModified()
+    }
+}
+
+// JNI compilation task
+task compileJNI(type: Exec) {
+    description = 'Compile JNI libraries for llama.cpp integration'
+    group = 'build'
+    
+    dependsOn generateJNIHeader
+    
+    // Platform detection
+    def osName = System.getProperty('os.name').toLowerCase()
+    def isWindows = osName.contains('windows')
+    def isMac = osName.contains('mac')
+    def isLinux = osName.contains('linux')
+    
+    def javaHome = System.getProperty('java.home')
+    def includePath = "$javaHome/include"
+    def platformInclude = isWindows ? "$javaHome/include/win32" : 
+                         isMac ? "$javaHome/include/darwin" : 
+                         "$javaHome/include/linux"
+    
+    def outputLib = isWindows ? 'bin/llama.dll' : 
+                   isMac ? 'bin/libllama.dylib' : 
+                   'bin/libllama.so'
+    
+    // Ensure bin directory exists
+    doFirst {
+        file('bin').mkdirs()
+    }
+    
+    // Compilation command with proper include paths
+    if (isWindows) {
+        commandLine 'g++', '-shared', '-fPIC',
+                   "-I$includePath", "-I$platformInclude", '-Imain',
+                   '-o', outputLib,
+                   'main/llama_jni.cpp'
+    } else {
+        commandLine 'g++', '-shared', '-fPIC',
+                   "-I$includePath", "-I$platformInclude", '-Imain',
+                   '-o', outputLib,
+                   'main/llama_jni.cpp'
+    }
+    
+    // Only run if source files are newer
+    inputs.files 'main/llama_jni.cpp', 'main/LlamaJNI.h', 'main/com_example_LlamaJNI.h'
+    outputs.file outputLib
+    
+    onlyIf {
+        // Skip if GCC is not available
+        def hasGcc = true
+        try {
+            def result = project.exec {
+                commandLine 'g++', '--version'
+                ignoreExitValue = true
+            }
+            hasGcc = result.exitValue == 0
+        } catch (Exception e) {
+            hasGcc = false
+        }
+        
+        // Skip if llama.cpp headers are not available
+        def hasLlama = file('main/llama.h').exists() || 
+                      file('/usr/local/include/llama.h').exists() ||
+                      file('/opt/llama.cpp/llama.h').exists()
+        
+        if (hasGcc && !hasLlama) {
+            logger.warn("llama.cpp headers not found. JNI compilation skipped.")
+            logger.warn("To enable JNI compilation:")
+            logger.warn("1. Install llama.cpp: git clone https://github.com/ggerganov/llama.cpp.git")
+            logger.warn("2. Build llama.cpp: cd llama.cpp && make")
+            logger.warn("3. Copy llama.h to main/llama.h")
+        }
+        
+        return hasGcc && hasLlama && (!file(outputLib).exists() || 
+               file('main/llama_jni.cpp').lastModified() > file(outputLib).lastModified())
+    }
+}
+
+// Test configuration
+test {
+    useJUnit()
+    
+    testLogging {
+        events "passed", "skipped", "failed"
+        exceptionFormat "full"
+    }
+    
+    // System properties for tests
+    systemProperty 'java.library.path', 'bin'
+    systemProperty 'java.awt.headless', 'true'
+    
+    // JVM arguments for tests
+    jvmArgs '-Xmx2g', '-Xms1g'
+    
+    // Retry failed tests
+    retry {
+        maxRetries = 2
+        maxFailures = 3
+    }
+}
+
+// Security and dependency checking
+dependencyCheck {
+    formats = ['HTML', 'XML', 'JSON']
+    outputDirectory = 'build/reports/dependency-check'
+    scanConfigurations = ['runtimeClasspath']
+    
+    // CVE data settings
+    nvd {
+        validForHours = 24
+    }
+    failBuildOnCVSS = 7.0
+    
+    // Suppression file for false positives
+    suppressionFile = 'dependency-check-suppressions.xml'
+}
+
+// Dependency updates checking
+dependencyUpdates {
+    checkForGradleUpdate = true
+    gradleReleaseChannel = 'current'
+    
+    resolutionStrategy {
+        componentSelection { rules ->
+            rules.all { ComponentSelection selection ->
+                boolean rejected = ['alpha', 'beta', 'rc', 'cr', 'm', 'preview', 'b', 'ea'].any { qualifier ->
+                    selection.candidate.version ==~ /(?i).*[.-]${qualifier}[.\d-+]*/
+                }
+                if (rejected) {
+                    selection.reject('Release candidate')
+                }
+            }
+        }
+    }
+}
+
+// Build task dependencies
+build.dependsOn copyNativeLibs
+jar.dependsOn compileJNI
+
+// Clean task enhancement
+clean {
+    delete 'bin'
+    delete 'logs'
+    delete 'tmp'
+    delete fileTree(dir: '.', include: '*.log')
+}
+
+// Distribution configuration
+distributions {
+    main {
+        distributionBaseName = 'agent-orange'
+        contents {
+            from(jar)
+            from('bin') {
+                into 'bin'
+                include '*.so', '*.dll', '*.dylib'
+            }
+            from('.') {
+                include '*.sh', '*.properties', '*.md'
+                exclude 'build.sh'
+            }
+            from('build/libs') {
+                into 'lib'
+            }
+        }
+    }
+}
+
+// Custom tasks for project management
+task downloadDependencies {
+    description = 'Download and verify all dependencies'
+    group = 'build setup'
+    
+    doLast {
+        println "Dependencies will be downloaded automatically on first build"
+        println "Run './gradlew build' to download and compile everything"
+    }
+}
+
+task listDependencies {
+    description = 'List all project dependencies with versions'
+    group = 'help'
+    
+    doLast {
+        println "Project Dependencies:"
+        configurations.runtimeClasspath.incoming.resolutionResult.allDependencies.each {
+            if (it.hasProperty('selected')) {
+                println "  ${it.selected.id}"
+            }
+        }
+    }
+}
+
+task securityCheck {
+    description = 'Run comprehensive security checks on dependencies'
+    group = 'verification'
+    dependsOn dependencyCheckAnalyze, dependencyUpdates
+}
+
+// Wrapper configuration for reproducible builds
+wrapper {
+    gradleVersion = '8.6'
+    distributionType = Wrapper.DistributionType.BIN
+}
