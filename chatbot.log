@@ -44,3 +44,45 @@ Please verify your Ghidra installation and path.
 	at com.example.Main.initializeModules(Main.java:143)
 	... 1 more
 
+Jul 28, 2025 2:33:29 PM com.example.Main initializeLogging
+INFO: Logging initialized
+Jul 28, 2025 2:33:29 PM com.example.Main main
+INFO: Starting Offline Pentesting Chatbot v1.0.0
+Jul 28, 2025 2:33:29 PM com.example.Main initializeModules
+INFO: Initializing modules...
+Jul 28, 2025 2:33:29 PM com.example.Main validateConfiguration
+INFO: Validating configuration...
+Jul 28, 2025 2:33:29 PM com.example.Main validateConfiguration
+WARNING: Ghidra path not found: /opt/ghidra/support/analyzeHeadless
+Jul 28, 2025 2:33:29 PM com.example.Main validateConfiguration
+INFO: Configuration validation completed
+Jul 28, 2025 2:33:29 PM com.example.Main initializeModules
+INFO: LLM module initialized: Not available
+Jul 28, 2025 2:33:29 PM com.example.Main initializeModules
+INFO: Embedding client initialized
+Jul 28, 2025 2:33:29 PM com.example.Main initializeModules
+INFO: Vector database client initialized
+Jul 28, 2025 2:33:29 PM com.example.Main initializeModules
+SEVERE: Failed to initialize modules
+java.lang.IllegalArgumentException: Ghidra analyzeHeadless script not found: /opt/ghidra/support/analyzeHeadless
+Please verify your Ghidra installation and path.
+	at com.example.GhidraBridge.validateConfiguration(GhidraBridge.java:111)
+	at com.example.GhidraBridge.<init>(GhidraBridge.java:99)
+	at com.example.GhidraBridge.<init>(GhidraBridge.java:80)
+	at com.example.Main.initializeModules(Main.java:143)
+	at com.example.Main.main(Main.java:87)
+
+Jul 28, 2025 2:33:29 PM com.example.Main main
+SEVERE: Fatal error during startup
+java.lang.Exception: Module initialization failed: Ghidra analyzeHeadless script not found: /opt/ghidra/support/analyzeHeadless
+Please verify your Ghidra installation and path.
+	at com.example.Main.initializeModules(Main.java:160)
+	at com.example.Main.main(Main.java:87)
+Caused by: java.lang.IllegalArgumentException: Ghidra analyzeHeadless script not found: /opt/ghidra/support/analyzeHeadless
+Please verify your Ghidra installation and path.
+	at com.example.GhidraBridge.validateConfiguration(GhidraBridge.java:111)
+	at com.example.GhidraBridge.<init>(GhidraBridge.java:99)
+	at com.example.GhidraBridge.<init>(GhidraBridge.java:80)
+	at com.example.Main.initializeModules(Main.java:143)
+	... 1 more
+
