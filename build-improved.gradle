@@ -1,0 +1,455 @@
+plugins {
+    id 'java'
+    id 'application'
+    id 'org.gradle.test-retry' version '1.5.8'
+    id 'com.github.ben-manes.versions' version '0.51.0'
+    id 'org.owasp.dependencycheck' version '9.0.9'
+}
+
+// Project configuration
+group = 'com.example'
+version = '1.0.0'
+description = 'Agent-Orange: Pentesting Chatbot with AI-driven analysis tools'
+
+// Java compatibility
+java {
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+    withSourcesJar()
+    withJavadocJar()
+}
+
+// Application configuration
+application {
+    mainClass = 'com.example.Main'
+    applicationDefaultJvmArgs = [
+        '-Xmx4g',
+        '-Xms2g',
+        '-Djava.library.path=bin'
+    ]
+}
+
+// Repository configuration
+repositories {
+    mavenCentral()
+}
+
+// Dependency version management
+ext {
+    versions = [
+        // Core JSON processing for ChromaDBClient
+        gson: '2.10.1',
+        jackson: '2.16.1',
+        
+        // Utility libraries used across components
+        commonsLang: '3.14.0',
+        commonsIo: '2.15.1',
+        
+        // Logging framework
+        slf4j: '2.0.12',
+        logback: '1.4.14',
+        
+        // Testing framework
+        junit: '4.13.2',
+        hamcrest: '1.3',
+        
+        // Additional dependencies that may be needed
+        httpClient: '5.3.1',
+        commonsCodec: '1.16.0'
+    ]
+}
+
+dependencies {
+    // === ChromaDBClient Dependencies ===
+    // JSON processing for ChromaDB REST API communication
+    implementation "com.google.code.gson:gson:${versions.gson}"
+    implementation "com.fasterxml.jackson.core:jackson-core:${versions.jackson}"
+    implementation "com.fasterxml.jackson.core:jackson-databind:${versions.jackson}"
+    
+    // HTTP client for ChromaDB communication
+    implementation "org.apache.httpcomponents.client5:httpclient5:${versions.httpClient}"
+    
+    // === GhidraBridge Dependencies ===
+    // File I/O and process management
+    implementation "commons-io:commons-io:${versions.commonsIo}"
+    implementation "org.apache.commons:commons-lang3:${versions.commonsLang}"
+    
+    // === LlamaJNI Dependencies ===
+    // Utility functions and encoding
+    implementation "commons-codec:commons-codec:${versions.commonsCodec}"
+    
+    // === Shared Dependencies ===
+    // Logging framework used by all components
+    implementation "org.slf4j:slf4j-api:${versions.slf4j}"
+    implementation "ch.qos.logback:logback-classic:${versions.logback}"
+    
+    // === Test Dependencies ===
+    testImplementation "junit:junit:${versions.junit}"
+    testImplementation "org.hamcrest:hamcrest-core:${versions.hamcrest}"
+    testRuntimeOnly "org.junit.vintage:junit-vintage-engine:5.10.2"
+    
+    // Test utilities
+    testImplementation "org.mockito:mockito-core:5.10.0"
+    testImplementation "org.junit.jupiter:junit-jupiter:5.10.2"
+}
+
+// === STANDARD SOURCE SETS CONFIGURATION ===
+sourceSets {
+    main {
+        java {
+            // Standard Maven/Gradle directory structure
+            srcDirs = ['src/main/java']
+        }
+        resources {
+            srcDirs = ['src/main/resources']
+        }
+    }
+    test {
+        java {
+            srcDirs = ['src/test/java']
+        }
+        resources {
+            srcDirs = ['src/test/resources']
+        }
+    }
+    
+    // === LEGACY SUPPORT ===
+    // Support for existing 'main/' directory structure during migration
+    legacy {
+        java {
+            srcDirs = ['main']
+            exclude '**/*Test.java'
+            exclude 'TestMain.java'
+            exclude 'ExtractFunctions.java'  // Ghidra script
+        }
+    }
+}
+
+// === COMPILATION CONFIGURATION ===
+compileJava {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += [
+        '-Xlint:all', 
+        '-Xlint:-processing',
+        '-Xlint:-serial'  // Suppress serialization warnings
+    ]
+    options.deprecation = true
+    options.warnings = true
+    
+    // Include legacy sources during migration
+    source sourceSets.legacy.java
+}
+
+compileTestJava {
+    options.encoding = 'UTF-8'
+    options.compilerArgs += ['-Xlint:all', '-Xlint:-serial']
+}
+
+// === JAR CONFIGURATION ===
+jar {
+    archiveFileName = 'chatbot.jar'
+    destinationDirectory = file('bin')
+    
+    manifest {
+        attributes(
+            'Main-Class': 'com.example.Main',
+            'Implementation-Title': project.name,
+            'Implementation-Version': project.version,
+            'Built-By': System.getProperty('user.name'),
+            'Built-Date': new Date().toString(),
+            'Built-JDK': System.getProperty('java.version'),
+            'Class-Path': configurations.runtimeClasspath.collect { 
+                'lib/' + it.getName() 
+            }.join(' ')
+        )
+    }
+    
+    // Create fat JAR with all dependencies
+    from {
+        configurations.runtimeClasspath.collect { 
+            it.isDirectory() ? it : zipTree(it) 
+        }
+    }
+    
+    duplicatesStrategy = DuplicatesStrategy.EXCLUDE
+}
+
+// === NATIVE LIBRARY TASKS ===
+
+// Copy native libraries from dependencies
+task copyNativeLibs(type: Copy) {
+    description = 'Copy native libraries to bin directory'
+    group = 'native'
+    
+    from configurations.runtimeClasspath.filter { 
+        it.name.endsWith('.so') || 
+        it.name.endsWith('.dll') || 
+        it.name.endsWith('.dylib') 
+    }
+    into 'bin'
+}
+
+// Generate JNI headers
+task generateJNIHeaders(type: Exec) {
+    description = 'Generate JNI header files from Java classes'
+    group = 'native'
+    
+    dependsOn compileJava
+    
+    def outputDir = 'src/main/cpp'
+    def javaClasses = ['com.example.LlamaJNI']
+    
+    doFirst {
+        file(outputDir).mkdirs()
+    }
+    
+    commandLine 'javac', '-h', outputDir, 
+                '-cp', sourceSets.main.output.classesDirs.asPath,
+                *javaClasses.collect { it.replace('.', '/') + '.java' }
+    
+    inputs.files sourceSets.main.java.matching { include '**/LlamaJNI.java' }
+    outputs.dir outputDir
+}
+
+// Compile native libraries (JNI)
+task compileNativeLibs(type: Exec) {
+    description = 'Compile JNI libraries for llama.cpp integration'
+    group = 'native'
+    
+    dependsOn generateJNIHeaders
+    
+    // Platform detection
+    def osName = System.getProperty('os.name').toLowerCase()
+    def isWindows = osName.contains('windows')
+    def isMac = osName.contains('mac')
+    def isLinux = osName.contains('linux')
+    
+    def javaHome = System.getProperty('java.home')
+    def includePath = "$javaHome/include"
+    def platformInclude = isWindows ? "$javaHome/include/win32" : 
+                         isMac ? "$javaHome/include/darwin" : 
+                         "$javaHome/include/linux"
+    
+    def outputLib = isWindows ? 'bin/libllama.dll' : 
+                   isMac ? 'bin/libllama.dylib' : 
+                   'bin/libllama.so'
+    
+    doFirst {
+        file('bin').mkdirs()
+    }
+    
+    // Cross-platform compilation
+    if (isWindows) {
+        commandLine 'g++', '-shared', '-fPIC',
+                   "-I$includePath", "-I$platformInclude", 
+                   '-Isrc/main/cpp', '-Imain',
+                   '-o', outputLib,
+                   'src/main/cpp/llama_jni.cpp'
+    } else {
+        commandLine 'g++', '-shared', '-fPIC',
+                   "-I$includePath", "-I$platformInclude", 
+                   '-Isrc/main/cpp', '-Imain',
+                   '-o', outputLib,
+                   'src/main/cpp/llama_jni.cpp'
+    }
+    
+    inputs.files 'src/main/cpp/llama_jni.cpp', 'main/llama_jni.cpp'
+    outputs.file outputLib
+    
+    onlyIf {
+        // Check for GCC availability
+        def hasGcc = false
+        try {
+            def result = project.exec {
+                commandLine 'g++', '--version'
+                ignoreExitValue = true
+            }
+            hasGcc = result.exitValue == 0
+        } catch (Exception e) {
+            hasGcc = false
+        }
+        
+        // Check for llama.cpp headers
+        def hasLlama = file('src/main/cpp/llama.h').exists() || 
+                      file('main/llama.h').exists() ||
+                      file('/usr/local/include/llama.h').exists() ||
+                      file('/opt/llama.cpp/llama.h').exists()
+        
+        if (!hasGcc) {
+            logger.warn("GCC not available. Native compilation skipped.")
+        } else if (!hasLlama) {
+            logger.warn("llama.cpp headers not found. JNI compilation skipped.")
+            logger.info("To enable JNI compilation:")
+            logger.info("1. Install llama.cpp: git clone https://github.com/ggerganov/llama.cpp.git")
+            logger.info("2. Build llama.cpp: cd llama.cpp && make")
+            logger.info("3. Copy llama.h to src/main/cpp/llama.h")
+        }
+        
+        return hasGcc && hasLlama
+    }
+}
+
+// === TEST CONFIGURATION ===
+test {
+    useJUnitPlatform()
+    
+    testLogging {
+        events "passed", "skipped", "failed", "standardError"
+        exceptionFormat "full"
+        showStandardStreams = false
+    }
+    
+    // System properties for testing
+    systemProperty 'java.library.path', 'bin'
+    systemProperty 'java.awt.headless', 'true'
+    systemProperty 'file.encoding', 'UTF-8'
+    
+    // JVM arguments for tests
+    jvmArgs '-Xmx2g', '-Xms1g'
+    
+    // Test retry configuration
+    retry {
+        maxRetries = 2
+        maxFailures = 3
+    }
+    
+    // Test timeout
+    timeout = Duration.ofMinutes(10)
+}
+
+// === SECURITY CONFIGURATION ===
+dependencyCheck {
+    formats = ['HTML', 'XML', 'JSON']
+    outputDirectory = 'build/reports/dependency-check'
+    scanConfigurations = ['runtimeClasspath']
+    
+    nvd {
+        validForHours = 24
+    }
+    failBuildOnCVSS = 7.0
+    
+    suppressionFile = 'dependency-check-suppressions.xml'
+}
+
+// === DEPENDENCY UPDATES ===
+dependencyUpdates {
+    checkForGradleUpdate = true
+    gradleReleaseChannel = 'current'
+    
+    resolutionStrategy {
+        componentSelection { rules ->
+            rules.all { ComponentSelection selection ->
+                boolean rejected = ['alpha', 'beta', 'rc', 'cr', 'm', 'preview', 'b', 'ea'].any { qualifier ->
+                    selection.candidate.version ==~ /(?i).*[.-]${qualifier}[.\d-+]*/
+                }
+                if (rejected) {
+                    selection.reject('Release candidate')
+                }
+            }
+        }
+    }
+}
+
+// === BUILD TASK DEPENDENCIES ===
+build.dependsOn copyNativeLibs
+jar.dependsOn compileNativeLibs
+
+// === CLEAN CONFIGURATION ===
+clean {
+    delete 'bin'
+    delete 'logs'
+    delete 'tmp'
+    delete fileTree(dir: '.', include: '*.log')
+    delete 'main/*.class'  // Clean legacy compiled files
+}
+
+// === CUSTOM TASKS ===
+
+task migrateToStandardStructure {
+    description = 'Migrate from legacy main/ structure to standard src/main/java structure'
+    group = 'migration'
+    
+    doLast {
+        // Move Java files
+        fileTree('main').include('*.java').exclude('*Test*.java').each { file ->
+            copy {
+                from file
+                into 'src/main/java/com/example'
+            }
+        }
+        
+        // Move test files
+        fileTree('main').include('*Test*.java').each { file ->
+            copy {
+                from file
+                into 'src/test/java/com/example'
+            }
+        }
+        
+        // Move native files
+        fileTree('main').include('*.cpp', '*.h', '*.c').each { file ->
+            copy {
+                from file
+                into 'src/main/cpp'
+            }
+        }
+        
+        println "Migration completed. Please update build.gradle to use standard source sets."
+    }
+}
+
+task validateProjectStructure {
+    description = 'Validate project structure and dependencies'
+    group = 'verification'
+    
+    doLast {
+        def issues = []
+        
+        // Check for main class
+        def mainClass = file('src/main/java/com/example/Main.java')
+        if (!mainClass.exists()) {
+            mainClass = file('main/Main.java')
+            if (!mainClass.exists()) {
+                issues.add("Main.java not found")
+            }
+        }
+        
+        // Check for ChromaDBClient dependencies
+        def chromaClient = file('src/main/java/com/example/ChromaDBClient.java')
+        if (!chromaClient.exists()) {
+            chromaClient = file('main/ChromaDBClient.java')
+        }
+        if (chromaClient.exists()) {
+            def hasGson = configurations.runtimeClasspath.any { it.name.contains('gson') }
+            if (!hasGson) {
+                issues.add("ChromaDBClient found but Gson dependency missing")
+            }
+        }
+        
+        // Check for native libraries
+        def llamaJNI = file('src/main/java/com/example/LlamaJNI.java')
+        if (!llamaJNI.exists()) {
+            llamaJNI = file('main/LlamaJNI.java')
+        }
+        if (llamaJNI.exists()) {
+            def nativeFiles = fileTree('src/main/cpp').include('*.cpp').size() + 
+                             fileTree('main').include('*.cpp').size()
+            if (nativeFiles == 0) {
+                issues.add("LlamaJNI found but no native implementation files")
+            }
+        }
+        
+        if (issues.empty) {
+            println "✅ Project structure validation passed"
+        } else {
+            println "⚠️  Project structure issues found:"
+            issues.each { println "   - $it" }
+        }
+    }
+}
+
+// === WRAPPER CONFIGURATION ===
+wrapper {
+    gradleVersion = '8.6'
+    distributionType = Wrapper.DistributionType.BIN
+}
