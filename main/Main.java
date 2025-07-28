@@ -82,9 +82,20 @@ public class Main {
         
         logger.info("Starting " + APP_NAME + " v" + VERSION);
         
+        MCPOrchestrator orchestrator = null;
+        
         try {
             // Initialize modules with error handling
-            MCPOrchestrator orchestrator = initializeModules();
+            orchestrator = initializeModules();
+            
+            // Add shutdown hook for proper cleanup
+            final MCPOrchestrator finalOrchestrator = orchestrator;
+            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
+                System.out.println("\n[SHUTDOWN] Saving projects and cleaning up...");
+                if (finalOrchestrator != null) {
+                    finalOrchestrator.shutdown();
+                }
+            }));
             
             // Start CLI
             runCLI(orchestrator);
@@ -94,6 +105,11 @@ public class Main {
             System.err.println("[FATAL ERROR] " + e.getMessage());
             System.err.println("Check the log file for details.");
             System.exit(1);
+        } finally {
+            // Ensure clean shutdown
+            if (orchestrator != null) {
+                orchestrator.shutdown();
+            }
         }
     }
 
@@ -135,13 +151,25 @@ public class Main {
             EmbeddingClient embeddingClient = new EmbeddingClient();
             logger.info("Embedding client initialized");
             
-            // Initialize vector database client
-            ChromaDBClient chromaDBClient = ChromaDBClient.fromConfig();
-            logger.info("Vector database client initialized");
+            // Initialize vector database client (optional)
+            ChromaDBClient chromaDBClient = null;
+            try {
+                chromaDBClient = ChromaDBClient.fromConfig();
+                logger.info("Vector database client initialized");
+            } catch (Exception e) {
+                logger.warning("ChromaDB client not available: " + e.getMessage());
+                logger.info("Application will continue without ChromaDB functionality");
+            }
             
-            // Initialize Ghidra bridge
-            GhidraBridge ghidraBridge = GhidraBridge.fromConfig();
-            logger.info("Ghidra bridge initialized");
+            // Initialize Ghidra bridge (optional)
+            GhidraBridge ghidraBridge = null;
+            try {
+                ghidraBridge = GhidraBridge.fromConfig();
+                logger.info("Ghidra bridge initialized");
+            } catch (Exception e) {
+                logger.warning("Ghidra bridge not available: " + e.getMessage());
+                logger.info("Application will continue without Ghidra functionality");
+            }
             
             // Create orchestrator
             MCPOrchestrator orchestrator = new MCPOrchestrator(

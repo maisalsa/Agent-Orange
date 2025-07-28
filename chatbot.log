@@ -1,170 +1,244 @@
-Jul 28, 2025 5:03:11 PM com.example.Main initializeLogging
+Jul 28, 2025 5:29:38 PM com.example.Main initializeLogging
 INFO: Logging initialized
-Jul 28, 2025 5:03:11 PM com.example.Main main
+Jul 28, 2025 5:29:38 PM com.example.Main main
 INFO: Starting Offline Pentesting Chatbot v1.0.0
-Jul 28, 2025 5:03:11 PM com.example.Main initializeModules
+Jul 28, 2025 5:29:38 PM com.example.Main initializeModules
 INFO: Initializing modules...
-Jul 28, 2025 5:03:11 PM com.example.Main validateConfiguration
+Jul 28, 2025 5:29:38 PM com.example.Main validateConfiguration
 INFO: Validating configuration...
-Jul 28, 2025 5:03:11 PM com.example.Main validateConfiguration
+Jul 28, 2025 5:29:38 PM com.example.Main validateConfiguration
 WARNING: Required directory not found: logs (will be created)
-Jul 28, 2025 5:03:11 PM com.example.Main validateConfiguration
+Jul 28, 2025 5:29:38 PM com.example.Main validateConfiguration
 WARNING: Ghidra path not found: /opt/ghidra/support/analyzeHeadless
-Jul 28, 2025 5:03:11 PM com.example.Main validateConfiguration
+Jul 28, 2025 5:29:38 PM com.example.Main validateConfiguration
 INFO: Configuration validation completed
-Jul 28, 2025 5:03:11 PM com.example.Main initializeModules
+Jul 28, 2025 5:29:38 PM com.example.Main initializeModules
 INFO: LLM module initialized: Not available
-Jul 28, 2025 5:03:11 PM com.example.Main initializeModules
+Jul 28, 2025 5:29:38 PM com.example.Main initializeModules
 INFO: Embedding client initialized
-Jul 28, 2025 5:03:11 PM com.example.Main initializeModules
+Jul 28, 2025 5:29:38 PM com.example.Main initializeModules
 INFO: Vector database client initialized
-Jul 28, 2025 5:03:11 PM com.example.Main initializeModules
+Jul 28, 2025 5:29:38 PM com.example.Main initializeModules
 SEVERE: Failed to initialize modules
 java.lang.IllegalArgumentException: Ghidra analyzeHeadless script not found: /opt/ghidra/support/analyzeHeadless
 Please verify your Ghidra installation and path.
 	at com.example.GhidraBridge.validateConfiguration(GhidraBridge.java:268)
 	at com.example.GhidraBridge.<init>(GhidraBridge.java:99)
 	at com.example.GhidraBridge.fromConfig(GhidraBridge.java:256)
-	at com.example.Main.initializeModules(Main.java:143)
-	at com.example.Main.main(Main.java:87)
+	at com.example.Main.initializeModules(Main.java:159)
+	at com.example.Main.main(Main.java:89)
 
-Jul 28, 2025 5:03:11 PM com.example.Main main
+Jul 28, 2025 5:29:38 PM com.example.Main main
 SEVERE: Fatal error during startup
 java.lang.Exception: Module initialization failed: Ghidra analyzeHeadless script not found: /opt/ghidra/support/analyzeHeadless
 Please verify your Ghidra installation and path.
-	at com.example.Main.initializeModules(Main.java:156)
-	at com.example.Main.main(Main.java:87)
+	at com.example.Main.initializeModules(Main.java:172)
+	at com.example.Main.main(Main.java:89)
 Caused by: java.lang.IllegalArgumentException: Ghidra analyzeHeadless script not found: /opt/ghidra/support/analyzeHeadless
 Please verify your Ghidra installation and path.
 	at com.example.GhidraBridge.validateConfiguration(GhidraBridge.java:268)
 	at com.example.GhidraBridge.<init>(GhidraBridge.java:99)
 	at com.example.GhidraBridge.fromConfig(GhidraBridge.java:256)
-	at com.example.Main.initializeModules(Main.java:143)
+	at com.example.Main.initializeModules(Main.java:159)
 	... 1 more
 
-Jul 28, 2025 5:03:18 PM com.example.Main initializeLogging
+Jul 28, 2025 5:30:07 PM com.example.Main initializeLogging
 INFO: Logging initialized
-Jul 28, 2025 5:03:18 PM com.example.Main main
+Jul 28, 2025 5:30:07 PM com.example.Main main
 INFO: Starting Offline Pentesting Chatbot v1.0.0
-Jul 28, 2025 5:03:18 PM com.example.Main initializeModules
+Jul 28, 2025 5:30:07 PM com.example.Main initializeModules
 INFO: Initializing modules...
-Jul 28, 2025 5:03:18 PM com.example.Main validateConfiguration
+Jul 28, 2025 5:30:07 PM com.example.Main validateConfiguration
 INFO: Validating configuration...
-Jul 28, 2025 5:03:18 PM com.example.Main validateConfiguration
+Jul 28, 2025 5:30:07 PM com.example.Main validateConfiguration
 WARNING: Ghidra path not found: /opt/ghidra/support/analyzeHeadless
-Jul 28, 2025 5:03:18 PM com.example.Main validateConfiguration
+Jul 28, 2025 5:30:07 PM com.example.Main validateConfiguration
 INFO: Configuration validation completed
-Jul 28, 2025 5:03:18 PM com.example.Main initializeModules
+Jul 28, 2025 5:30:07 PM com.example.Main initializeModules
 INFO: LLM module initialized: Not available
-Jul 28, 2025 5:03:18 PM com.example.Main initializeModules
+Jul 28, 2025 5:30:07 PM com.example.Main initializeModules
 INFO: Embedding client initialized
-Jul 28, 2025 5:03:18 PM com.example.Main initializeModules
+Jul 28, 2025 5:30:07 PM com.example.Main initializeModules
 INFO: Vector database client initialized
-Jul 28, 2025 5:03:18 PM com.example.Main initializeModules
-SEVERE: Failed to initialize modules
-java.lang.IllegalArgumentException: Ghidra analyzeHeadless script not found: /opt/ghidra/support/analyzeHeadless
+Jul 28, 2025 5:30:07 PM com.example.Main initializeModules
+WARNING: Ghidra bridge not available: Ghidra analyzeHeadless script not found: /opt/ghidra/support/analyzeHeadless
 Please verify your Ghidra installation and path.
-	at com.example.GhidraBridge.validateConfiguration(GhidraBridge.java:268)
-	at com.example.GhidraBridge.<init>(GhidraBridge.java:99)
-	at com.example.GhidraBridge.fromConfig(GhidraBridge.java:256)
-	at com.example.Main.initializeModules(Main.java:143)
-	at com.example.Main.main(Main.java:87)
-
-Jul 28, 2025 5:03:18 PM com.example.Main main
-SEVERE: Fatal error during startup
-java.lang.Exception: Module initialization failed: Ghidra analyzeHeadless script not found: /opt/ghidra/support/analyzeHeadless
-Please verify your Ghidra installation and path.
-	at com.example.Main.initializeModules(Main.java:156)
-	at com.example.Main.main(Main.java:87)
-Caused by: java.lang.IllegalArgumentException: Ghidra analyzeHeadless script not found: /opt/ghidra/support/analyzeHeadless
-Please verify your Ghidra installation and path.
-	at com.example.GhidraBridge.validateConfiguration(GhidraBridge.java:268)
-	at com.example.GhidraBridge.<init>(GhidraBridge.java:99)
-	at com.example.GhidraBridge.fromConfig(GhidraBridge.java:256)
-	at com.example.Main.initializeModules(Main.java:143)
-	... 1 more
-
-Jul 28, 2025 5:03:39 PM com.example.Main initializeLogging
+Jul 28, 2025 5:30:07 PM com.example.Main initializeModules
+INFO: Application will continue without Ghidra functionality
+Jul 28, 2025 5:30:07 PM com.example.Main initializeModules
+INFO: MCPOrchestrator initialized successfully
+Jul 28, 2025 5:30:07 PM com.example.Main processInput
+INFO: Processing user input: create project named "Demo Project"
+Jul 28, 2025 5:30:07 PM com.example.Main processInput
+INFO: Orchestrator response generated successfully
+Jul 28, 2025 5:30:07 PM com.example.Main processInput
+INFO: Processing user input: list projects
+Jul 28, 2025 5:30:07 PM com.example.Main processInput
+INFO: Orchestrator response generated successfully
+Jul 28, 2025 5:30:07 PM com.example.Main processInput
+INFO: Processing user input: add target 192.168.1.100
+Jul 28, 2025 5:30:07 PM com.example.Main processInput
+INFO: Orchestrator response generated successfully
+Jul 28, 2025 5:30:07 PM com.example.Main processInput
+INFO: Processing user input: add vulnerability "SQL Injection" to 192.168.1.100 with severity high
+Jul 28, 2025 5:30:07 PM com.example.Main processInput
+INFO: Orchestrator response generated successfully
+Jul 28, 2025 5:30:07 PM com.example.Main processInput
+INFO: Processing user input: list vulnerabilities
+Jul 28, 2025 5:30:07 PM com.example.Main processInput
+INFO: Orchestrator response generated successfully
+Jul 28, 2025 5:30:07 PM com.example.Main processInput
+INFO: Processing user input: generate report
+Jul 28, 2025 5:30:07 PM com.example.Main processInput
+INFO: Orchestrator response generated successfully
+Jul 28, 2025 5:30:07 PM com.example.Main processInput
+INFO: User requested exit
+Jul 28, 2025 5:30:07 PM com.example.Main runCLI
+INFO: CLI session ended
+Jul 28, 2025 5:30:27 PM com.example.Main initializeLogging
 INFO: Logging initialized
-Jul 28, 2025 5:03:39 PM com.example.Main main
+Jul 28, 2025 5:30:27 PM com.example.Main main
 INFO: Starting Offline Pentesting Chatbot v1.0.0
-Jul 28, 2025 5:03:39 PM com.example.Main initializeModules
+Jul 28, 2025 5:30:27 PM com.example.Main initializeModules
 INFO: Initializing modules...
-Jul 28, 2025 5:03:39 PM com.example.Main validateConfiguration
+Jul 28, 2025 5:30:27 PM com.example.Main validateConfiguration
 INFO: Validating configuration...
-Jul 28, 2025 5:03:39 PM com.example.Main validateConfiguration
+Jul 28, 2025 5:30:27 PM com.example.Main validateConfiguration
 WARNING: Ghidra path not found: /opt/ghidra/support/analyzeHeadless
-Jul 28, 2025 5:03:39 PM com.example.Main validateConfiguration
+Jul 28, 2025 5:30:27 PM com.example.Main validateConfiguration
 INFO: Configuration validation completed
-Jul 28, 2025 5:03:39 PM com.example.Main initializeModules
+Jul 28, 2025 5:30:27 PM com.example.Main initializeModules
 INFO: LLM module initialized: Not available
-Jul 28, 2025 5:03:39 PM com.example.Main initializeModules
+Jul 28, 2025 5:30:27 PM com.example.Main initializeModules
 INFO: Embedding client initialized
-Jul 28, 2025 5:03:39 PM com.example.Main initializeModules
+Jul 28, 2025 5:30:27 PM com.example.Main initializeModules
 INFO: Vector database client initialized
-Jul 28, 2025 5:03:39 PM com.example.Main initializeModules
-SEVERE: Failed to initialize modules
-java.lang.IllegalArgumentException: Ghidra analyzeHeadless script not found: /opt/ghidra/support/analyzeHeadless
+Jul 28, 2025 5:30:27 PM com.example.Main initializeModules
+WARNING: Ghidra bridge not available: Ghidra analyzeHeadless script not found: /opt/ghidra/support/analyzeHeadless
 Please verify your Ghidra installation and path.
-	at com.example.GhidraBridge.validateConfiguration(GhidraBridge.java:268)
-	at com.example.GhidraBridge.<init>(GhidraBridge.java:99)
-	at com.example.GhidraBridge.fromConfig(GhidraBridge.java:256)
-	at com.example.Main.initializeModules(Main.java:143)
-	at com.example.Main.main(Main.java:87)
-
-Jul 28, 2025 5:03:39 PM com.example.Main main
-SEVERE: Fatal error during startup
-java.lang.Exception: Module initialization failed: Ghidra analyzeHeadless script not found: /opt/ghidra/support/analyzeHeadless
-Please verify your Ghidra installation and path.
-	at com.example.Main.initializeModules(Main.java:156)
-	at com.example.Main.main(Main.java:87)
-Caused by: java.lang.IllegalArgumentException: Ghidra analyzeHeadless script not found: /opt/ghidra/support/analyzeHeadless
-Please verify your Ghidra installation and path.
-	at com.example.GhidraBridge.validateConfiguration(GhidraBridge.java:268)
-	at com.example.GhidraBridge.<init>(GhidraBridge.java:99)
-	at com.example.GhidraBridge.fromConfig(GhidraBridge.java:256)
-	at com.example.Main.initializeModules(Main.java:143)
-	... 1 more
-
-Jul 28, 2025 5:03:44 PM com.example.Main initializeLogging
+Jul 28, 2025 5:30:27 PM com.example.Main initializeModules
+INFO: Application will continue without Ghidra functionality
+Jul 28, 2025 5:30:27 PM com.example.Main initializeModules
+INFO: MCPOrchestrator initialized successfully
+Jul 28, 2025 5:30:27 PM com.example.Main processInput
+INFO: Processing user input: list projects
+Jul 28, 2025 5:30:27 PM com.example.Main processInput
+INFO: Orchestrator response generated successfully
+Jul 28, 2025 5:30:27 PM com.example.Main processInput
+INFO: Processing user input: open project Demo
+Jul 28, 2025 5:30:27 PM com.example.Main processInput
+INFO: Orchestrator response generated successfully
+Jul 28, 2025 5:30:27 PM com.example.Main processInput
+INFO: Processing user input: show project status
+Jul 28, 2025 5:30:27 PM com.example.Main processInput
+INFO: Orchestrator response generated successfully
+Jul 28, 2025 5:30:27 PM com.example.Main processInput
+INFO: User requested exit
+Jul 28, 2025 5:30:27 PM com.example.Main runCLI
+INFO: CLI session ended
+Jul 28, 2025 5:30:34 PM com.example.Main initializeLogging
 INFO: Logging initialized
-Jul 28, 2025 5:03:45 PM com.example.Main main
+Jul 28, 2025 5:30:34 PM com.example.Main main
 INFO: Starting Offline Pentesting Chatbot v1.0.0
-Jul 28, 2025 5:03:45 PM com.example.Main initializeModules
+Jul 28, 2025 5:30:34 PM com.example.Main initializeModules
 INFO: Initializing modules...
-Jul 28, 2025 5:03:45 PM com.example.Main validateConfiguration
+Jul 28, 2025 5:30:34 PM com.example.Main validateConfiguration
 INFO: Validating configuration...
-Jul 28, 2025 5:03:45 PM com.example.Main validateConfiguration
+Jul 28, 2025 5:30:34 PM com.example.Main validateConfiguration
 WARNING: Ghidra path not found: /opt/ghidra/support/analyzeHeadless
-Jul 28, 2025 5:03:45 PM com.example.Main validateConfiguration
+Jul 28, 2025 5:30:34 PM com.example.Main validateConfiguration
 INFO: Configuration validation completed
-Jul 28, 2025 5:03:45 PM com.example.Main initializeModules
+Jul 28, 2025 5:30:34 PM com.example.Main initializeModules
 INFO: LLM module initialized: Not available
-Jul 28, 2025 5:03:45 PM com.example.Main initializeModules
+Jul 28, 2025 5:30:34 PM com.example.Main initializeModules
 INFO: Embedding client initialized
-Jul 28, 2025 5:03:45 PM com.example.Main initializeModules
+Jul 28, 2025 5:30:35 PM com.example.Main initializeModules
 INFO: Vector database client initialized
-Jul 28, 2025 5:03:45 PM com.example.Main initializeModules
-SEVERE: Failed to initialize modules
-java.lang.IllegalArgumentException: Ghidra analyzeHeadless script not found: /opt/ghidra/support/analyzeHeadless
+Jul 28, 2025 5:30:35 PM com.example.Main initializeModules
+WARNING: Ghidra bridge not available: Ghidra analyzeHeadless script not found: /opt/ghidra/support/analyzeHeadless
 Please verify your Ghidra installation and path.
-	at com.example.GhidraBridge.validateConfiguration(GhidraBridge.java:268)
-	at com.example.GhidraBridge.<init>(GhidraBridge.java:99)
-	at com.example.GhidraBridge.fromConfig(GhidraBridge.java:256)
-	at com.example.Main.initializeModules(Main.java:143)
-	at com.example.Main.main(Main.java:87)
-
-Jul 28, 2025 5:03:45 PM com.example.Main main
-SEVERE: Fatal error during startup
-java.lang.Exception: Module initialization failed: Ghidra analyzeHeadless script not found: /opt/ghidra/support/analyzeHeadless
+Jul 28, 2025 5:30:35 PM com.example.Main initializeModules
+INFO: Application will continue without Ghidra functionality
+Jul 28, 2025 5:30:35 PM com.example.Main initializeModules
+INFO: MCPOrchestrator initialized successfully
+Jul 28, 2025 5:30:35 PM com.example.Main processInput
+INFO: Processing user input: list projects
+Jul 28, 2025 5:30:35 PM com.example.Main processInput
+INFO: Orchestrator response generated successfully
+Jul 28, 2025 5:30:35 PM com.example.Main processInput
+INFO: Processing user input: open project "SQL Injection" to 192.168.1.100 with severity high
+Jul 28, 2025 5:30:35 PM com.example.Main processInput
+INFO: Orchestrator response generated successfully
+Jul 28, 2025 5:30:35 PM com.example.Main processInput
+INFO: Processing user input: show project status
+Jul 28, 2025 5:30:35 PM com.example.Main processInput
+INFO: Orchestrator response generated successfully
+Jul 28, 2025 5:30:35 PM com.example.Main processInput
+INFO: User requested exit
+Jul 28, 2025 5:30:35 PM com.example.Main runCLI
+INFO: CLI session ended
+Jul 28, 2025 5:30:50 PM com.example.Main initializeLogging
+INFO: Logging initialized
+Jul 28, 2025 5:30:50 PM com.example.Main main
+INFO: Starting Offline Pentesting Chatbot v1.0.0
+Jul 28, 2025 5:30:50 PM com.example.Main initializeModules
+INFO: Initializing modules...
+Jul 28, 2025 5:30:50 PM com.example.Main validateConfiguration
+INFO: Validating configuration...
+Jul 28, 2025 5:30:50 PM com.example.Main validateConfiguration
+WARNING: Ghidra path not found: /opt/ghidra/support/analyzeHeadless
+Jul 28, 2025 5:30:50 PM com.example.Main validateConfiguration
+INFO: Configuration validation completed
+Jul 28, 2025 5:30:50 PM com.example.Main initializeModules
+INFO: LLM module initialized: Not available
+Jul 28, 2025 5:30:50 PM com.example.Main initializeModules
+INFO: Embedding client initialized
+Jul 28, 2025 5:30:50 PM com.example.Main initializeModules
+INFO: Vector database client initialized
+Jul 28, 2025 5:30:50 PM com.example.Main initializeModules
+WARNING: Ghidra bridge not available: Ghidra analyzeHeadless script not found: /opt/ghidra/support/analyzeHeadless
 Please verify your Ghidra installation and path.
-	at com.example.Main.initializeModules(Main.java:156)
-	at com.example.Main.main(Main.java:87)
-Caused by: java.lang.IllegalArgumentException: Ghidra analyzeHeadless script not found: /opt/ghidra/support/analyzeHeadless
-Please verify your Ghidra installation and path.
-	at com.example.GhidraBridge.validateConfiguration(GhidraBridge.java:268)
-	at com.example.GhidraBridge.<init>(GhidraBridge.java:99)
-	at com.example.GhidraBridge.fromConfig(GhidraBridge.java:256)
-	at com.example.Main.initializeModules(Main.java:143)
-	... 1 more
-
+Jul 28, 2025 5:30:50 PM com.example.Main initializeModules
+INFO: Application will continue without Ghidra functionality
+Jul 28, 2025 5:30:50 PM com.example.Main initializeModules
+INFO: MCPOrchestrator initialized successfully
+Jul 28, 2025 5:30:50 PM com.example.Main processInput
+INFO: Processing user input: create project named "Web App Penetration Test"
+Jul 28, 2025 5:30:50 PM com.example.Main processInput
+INFO: Orchestrator response generated successfully
+Jul 28, 2025 5:30:50 PM com.example.Main processInput
+INFO: Processing user input: add target 192.168.1.100
+Jul 28, 2025 5:30:50 PM com.example.Main processInput
+INFO: Orchestrator response generated successfully
+Jul 28, 2025 5:30:50 PM com.example.Main processInput
+INFO: Processing user input: add target example.com
+Jul 28, 2025 5:30:50 PM com.example.Main processInput
+INFO: Orchestrator response generated successfully
+Jul 28, 2025 5:30:50 PM com.example.Main processInput
+INFO: Processing user input: list projects
+Jul 28, 2025 5:30:50 PM com.example.Main processInput
+INFO: Orchestrator response generated successfully
+Jul 28, 2025 5:30:50 PM com.example.Main processInput
+INFO: Processing user input: add vulnerability "SQL Injection" to 192.168.1.100 with severity critical
+Jul 28, 2025 5:30:50 PM com.example.Main processInput
+INFO: Orchestrator response generated successfully
+Jul 28, 2025 5:30:50 PM com.example.Main processInput
+INFO: Processing user input: add vulnerability "XSS" to example.com with severity high
+Jul 28, 2025 5:30:50 PM com.example.Main processInput
+INFO: Orchestrator response generated successfully
+Jul 28, 2025 5:30:50 PM com.example.Main processInput
+INFO: Processing user input: list vulnerabilities
+Jul 28, 2025 5:30:50 PM com.example.Main processInput
+INFO: Orchestrator response generated successfully
+Jul 28, 2025 5:30:50 PM com.example.Main processInput
+INFO: Processing user input: generate report
+Jul 28, 2025 5:30:50 PM com.example.Main processInput
+INFO: Orchestrator response generated successfully
+Jul 28, 2025 5:30:50 PM com.example.Main processInput
+INFO: Processing user input: save project
+Jul 28, 2025 5:30:50 PM com.example.Main processInput
+INFO: Orchestrator response generated successfully
+Jul 28, 2025 5:30:50 PM com.example.Main processInput
+INFO: User requested exit
+Jul 28, 2025 5:30:50 PM com.example.Main runCLI
+INFO: CLI session ended

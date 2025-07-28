@@ -48,6 +48,12 @@ public class MCPOrchestrator {
     /** Ghidra bridge for binary analysis */
     private final GhidraBridge ghidraBridge;
     
+    /** Project manager for pentesting engagement management */
+    private final ProjectManager projectManager;
+    
+    /** Natural language processor for project commands */
+    private final ProjectCommandProcessor projectCommandProcessor;
+    
     /** Default collection name for vector database operations */
     private static final String DEFAULT_COLLECTION = "pentesting_docs";
     
@@ -67,6 +73,10 @@ public class MCPOrchestrator {
         this.embeddingClient = embeddingClient;
         this.chromaDBClient = chromaDBClient;
         this.ghidraBridge = ghidraBridge;
+        
+        // Initialize project management
+        this.projectManager = new ProjectManager();
+        this.projectCommandProcessor = new ProjectCommandProcessor(this.projectManager);
         
         // Validate that at least one module is available
         if (llama == null && embeddingClient == null && chromaDBClient == null && ghidraBridge == null) {
@@ -96,6 +106,11 @@ public class MCPOrchestrator {
         System.out.println("[MCPOrchestrator] Processing message: " + message);
         
         try {
+            // Check for project management commands first (highest priority)
+            if (projectCommandProcessor.isProjectCommand(message)) {
+                return handleProjectCommand(message);
+            }
+            
             // Check for Ghidra binary analysis requests
             if (isGhidraRequest(lower)) {
                 return handleGhidraRequest(message, lower);
@@ -459,6 +474,75 @@ public class MCPOrchestrator {
     }
 
     /**
+     * Handles project management commands.
+     * 
+     * @param message User's project command
+     * @return Response from project command processor
+     */
+    private String handleProjectCommand(String message) {
+        System.out.println("[MCPOrchestrator] Handling project command");
+        
+        try {
+            String response = projectCommandProcessor.processCommand(message);
+            
+            // If a vulnerability was added and Ghidra is available, 
+            // offer to analyze any binaries mentioned
+            if (response.contains("Added") && response.contains("vulnerability") && ghidraBridge != null) {
+                response += "\n\n💡 Tip: If you have related binaries to analyze, use: 'analyze [binary_path] with ghidra'";
+            }
+            
+            // If a target was added and ChromaDB is available,
+            // offer to search for similar targets or vulnerabilities
+            if (response.contains("Added target") && chromaDBClient != null) {
+                response += "\n\n💡 Tip: Search for existing vulnerabilities with: 'search vulnerabilities for [target]'";
+            }
+            
+            return response;
+            
+        } catch (Exception e) {
+            System.err.println("[MCPOrchestrator] Project command failed: " + e.getMessage());
+            return "❌ Error processing project command: " + e.getMessage();
+        }
+    }
+
+    /**
+     * Gets the project manager instance.
+     * 
+     * @return The project manager
+     */
+    public ProjectManager getProjectManager() {
+        return projectManager;
+    }
+
+    /**
+     * Gets the current project if one is active.
+     * 
+     * @return The current project or null if none is active
+     */
+    public Project getCurrentProject() {
+        return projectManager.getCurrentProject();
+    }
+
+    /**
+     * Shuts down the orchestrator and all modules.
+     * Ensures proper cleanup of project data.
+     */
+    public void shutdown() {
+        System.out.println("[MCPOrchestrator] Shutting down...");
+        
+        try {
+            // Close current project and save all projects
+            if (projectManager != null) {
+                projectManager.shutdown();
+            }
+            
+            System.out.println("[MCPOrchestrator] Shutdown complete");
+        } catch (Exception e) {
+            System.err.println("[MCPOrchestrator] Error during shutdown: " + e.getMessage());
+        }
+    }
+
+    /**
      * Logs the status of all modules for debugging.
      */
     private void logModuleStatus() {
@@ -467,6 +551,7 @@ public class MCPOrchestrator {
         System.out.println("  EmbeddingClient: " + (embeddingClient != null ? "Available" : "Not available"));
         System.out.println("  ChromaDBClient: " + (chromaDBClient != null ? "Available" : "Not available"));
         System.out.println("  GhidraBridge: " + (ghidraBridge != null ? "Available" : "Not available"));
+        System.out.println("  ProjectManager: " + (projectManager != null ? "Available (" + projectManager.getProjectNames().size() + " projects)" : "Not available"));
     }
 
     /**

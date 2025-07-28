@@ -94,7 +94,8 @@ sourceSets {
             exclude 'ExtractFunctions.java'  // Ghidra script, not main application code
         }
         resources {
-            srcDirs = ['src/main/resources']
+            srcDirs = ['.']
+            include '*.properties'
         }
     }
     test {
@@ -102,6 +103,10 @@ sourceSets {
             srcDirs = ['main']
             include '**/*Test.java'
             include 'TestMain.java'
+        }
+        resources {
+            srcDirs = ['.']
+            include '*.properties'
         }
     }
 }
