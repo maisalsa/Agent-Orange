@@ -399,7 +399,8 @@ public class ProjectManager {
     public Vulnerability createVulnerabilityForCurrentProject(String id, String name, 
             String description, Severity severity, String target, String service, String path) {
         
-        Vulnerability vulnerability = new Vulnerability(id, name, description, severity, target);
+        // Use CVE naming convention when creating vulnerabilities
+        Vulnerability vulnerability = Vulnerability.createWithCveConvention(id, name, description, severity, target, null);
         
         if (service != null && !service.trim().isEmpty()) {
             vulnerability.setService(service);

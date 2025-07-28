@@ -90,12 +90,13 @@ public class BurpSuiteParser {
         
         /**
          * Converts this Burp finding to an Agent-Orange Vulnerability.
+         * Uses CVE naming conventions to prioritize CVE IDs when available.
          * 
-         * @return Vulnerability object
+         * @return Vulnerability object with proper CVE naming
          */
         public Vulnerability toVulnerability() {
             String description = buildDescription();
-            return new Vulnerability(
+            return Vulnerability.createFromBurpSuite(
                 issueType, 
                 issueName, 
                 description, 

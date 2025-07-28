@@ -435,20 +435,11 @@ public class InformationGatheringCommandProcessor {
                     
                                          // Set the target on the vulnerability and add it to the project
                      if (finding.getHost() != null) {
-                         // Create a new vulnerability with the host as target
-                         Vulnerability vulnWithTarget = new Vulnerability(
-                             "BURP_" + finding.getIssueType(),
-                             vuln.getName(), 
-                             vuln.getDescription(), 
-                             vuln.getSeverity(), 
-                             finding.getHost()
-                         );
-                         
                          // Add the host as a target if it's not already present
                          project.addTarget(finding.getHost());
                          
-                         // Add the vulnerability to the project
-                         project.addVulnerability(vulnWithTarget);
+                         // Add the vulnerability to the project (toVulnerability already uses CVE conventions)
+                         project.addVulnerability(vuln);
                          addedVulns++;
                      }
                     

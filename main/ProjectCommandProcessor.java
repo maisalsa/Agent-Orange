@@ -55,6 +55,16 @@ public class ProjectCommandProcessor {
             "(?:list|show|display)\\s+(?:vulnerabilities|vulns|findings)(?:\\s+(?:for|on|in)\\s+(?:target\\s+)?([\\w\\.-]+))?(?:\\s+(?:in\\s+)?(?:project\\s+)?['\"]?([^'\"]+?)['\"]?)?(?:\\s|$)",
             Pattern.CASE_INSENSITIVE));
         
+        // CVE-specific query patterns
+        COMMAND_PATTERNS.put("SHOW_CVE", Pattern.compile(
+            "(?:show|display|get)\\s+(?:details\\s+(?:for|of)\\s+)?(CVE-\\d{4}-\\d{4,})(?:\\s+(?:in\\s+)?(?:project\\s+)?['\"]?([^'\"]+?)['\"]?)?(?:\\s|$)",
+            Pattern.CASE_INSENSITIVE));
+        
+        // Search vulnerabilities by name/CVE patterns
+        COMMAND_PATTERNS.put("SEARCH_VULNERABILITY", Pattern.compile(
+            "(?:search|find|lookup)\\s+(?:vulnerability|vuln|finding|cve)\\s+['\"]?([^'\"]+?)['\"]?(?:\\s+(?:in\\s+)?(?:project\\s+)?['\"]?([^'\"]+?)['\"]?)?(?:\\s|$)",
+            Pattern.CASE_INSENSITIVE));
+        
         // Report generation patterns
         COMMAND_PATTERNS.put("GENERATE_REPORT", Pattern.compile(
             "(?:generate|create|show)\\s+(?:vulnerability\\s+)?(?:report|summary)(?:\\s+for\\s+(?:project\\s+)?['\"]?([^'\"]+?)['\"]?)?(?:\\s|$)",
@@ -118,6 +128,8 @@ public class ProjectCommandProcessor {
         commandHandlers.put("ADD_TARGET", this::handleAddTarget);
         commandHandlers.put("ADD_VULNERABILITY", this::handleAddVulnerability);
         commandHandlers.put("LIST_VULNERABILITIES", this::handleListVulnerabilities);
+        commandHandlers.put("SHOW_CVE", this::handleShowCve);
+        commandHandlers.put("SEARCH_VULNERABILITY", this::handleSearchVulnerability);
         commandHandlers.put("GENERATE_REPORT", this::handleGenerateReport);
         commandHandlers.put("CLOSE_PROJECT", this::handleCloseProject);
         commandHandlers.put("SAVE_PROJECT", this::handleSaveProject);
@@ -377,12 +389,210 @@ public class ProjectCommandProcessor {
             if (vulnList != null && !vulnList.isEmpty()) {
                 response.append(severity.getFormattedName()).append(" (").append(vulnList.size()).append("):\n");
                 for (Vulnerability vuln : vulnList) {
-                    response.append("  • ").append(vuln.getName())
-                            .append(" (").append(vuln.getFullPath()).append(")");
-                    if (vuln.getCveId() != null) {
-                        response.append(" [").append(vuln.getCveId()).append("]");
+                    response.append("  • ");
+                    
+                    // Use CVE-aware display formatting
+                    String displayName = CveUtils.formatDisplayNameWithContext(vuln, false);
+                    response.append(displayName);
+                    
+                    response.append(" (").append(vuln.getFullPath()).append(")\n");
+                }
+                response.append("\n");
+            }
+        }
+        
+        return response.toString();
+    }
+    
+    /**
+     * Handles CVE-specific query commands.
+     * Searches for a specific CVE ID in the current or specified project.
+     */
+    private String handleShowCve(String input, Matcher matcher) {
+        String cveId = matcher.group(1);
+        String projectName = matcher.groupCount() > 1 ? matcher.group(2) : null;
+        
+        // Normalize the CVE ID
+        String normalizedCveId = CveUtils.normalizeCveId(cveId);
+        if (normalizedCveId == null) {
+            return "❌ Invalid CVE ID format: " + cveId + ". Expected format: CVE-YYYY-NNNN";
+        }
+        
+        Project project = projectManager.getCurrentProject();
+        
+        // If project name specified, use that project
+        if (projectName != null && !projectName.trim().isEmpty()) {
+            project = projectManager.getProject(projectName.trim());
+            if (project == null) {
+                return "❌ Project '" + projectName + "' not found.";
+            }
+        }
+        
+        if (project == null) {
+            return "❌ No project specified and no current project. Open a project first.";
+        }
+        
+        // Search for the CVE ID
+        List<Vulnerability> allVulns = project.getAllVulnerabilities();
+        Vulnerability foundVuln = null;
+        
+        for (Vulnerability vuln : allVulns) {
+            if (normalizedCveId.equals(vuln.getCveId())) {
+                foundVuln = vuln;
+                break;
+            }
+        }
+        
+        if (foundVuln == null) {
+            return String.format("🔍 CVE %s not found in project '%s'.\n\n" +
+                                "💡 Use 'list vulnerabilities' to see all vulnerabilities in the project.", 
+                                normalizedCveId, project.getName());
+        }
+        
+        // Display detailed vulnerability information
+        StringBuilder response = new StringBuilder();
+        response.append("🔍 ").append(normalizedCveId).append(" Details\n");
+        response.append("════════════════════════════════════\n");
+        response.append("📁 Project: ").append(project.getName()).append("\n");
+        response.append("🎯 Target: ").append(foundVuln.getTarget()).append("\n");
+        response.append("🚨 Severity: ").append(foundVuln.getSeverity().getFormattedName()).append("\n");
+        response.append("📍 Location: ").append(foundVuln.getFullPath()).append("\n");
+        
+        if (foundVuln.getService() != null) {
+            response.append("⚙️ Service: ").append(foundVuln.getService()).append("\n");
+        }
+        
+        response.append("📅 Discovered: ").append(foundVuln.getDiscoveredAt()).append("\n");
+        
+        if (foundVuln.getDiscoveredBy() != null) {
+            response.append("👤 Discovered by: ").append(foundVuln.getDiscoveredBy()).append("\n");
+        }
+        
+        response.append("✅ Verified: ").append(foundVuln.isVerified() ? "Yes" : "No").append("\n\n");
+        
+        response.append("📋 Description:\n").append(foundVuln.getDescription()).append("\n\n");
+        
+        if (foundVuln.getEvidence() != null && !foundVuln.getEvidence().trim().isEmpty()) {
+            response.append("🔍 Evidence:\n").append(foundVuln.getEvidence()).append("\n\n");
+        }
+        
+        List<String> remediation = foundVuln.getRemediation();
+        if (!remediation.isEmpty()) {
+            response.append("🛠️ Remediation:\n");
+            for (String step : remediation) {
+                response.append("  • ").append(step).append("\n");
+            }
+            response.append("\n");
+        }
+        
+        if (foundVuln.getNotes() != null && !foundVuln.getNotes().trim().isEmpty()) {
+            response.append("📝 Notes:\n").append(foundVuln.getNotes()).append("\n");
+        }
+        
+        return response.toString();
+    }
+    
+    /**
+     * Handles vulnerability search commands.
+     * Searches for vulnerabilities by name, CVE ID, or description.
+     */
+    private String handleSearchVulnerability(String input, Matcher matcher) {
+        String searchTerm = matcher.group(1);
+        String projectName = matcher.groupCount() > 1 ? matcher.group(2) : null;
+        
+        if (searchTerm == null || searchTerm.trim().isEmpty()) {
+            return "❌ Search term cannot be empty.";
+        }
+        
+        Project project = projectManager.getCurrentProject();
+        
+        // If project name specified, use that project
+        if (projectName != null && !projectName.trim().isEmpty()) {
+            project = projectManager.getProject(projectName.trim());
+            if (project == null) {
+                return "❌ Project '" + projectName + "' not found.";
+            }
+        }
+        
+        if (project == null) {
+            return "❌ No project specified and no current project. Open a project first.";
+        }
+        
+        String normalizedSearchTerm = searchTerm.trim().toLowerCase();
+        List<Vulnerability> allVulns = project.getAllVulnerabilities();
+        List<Vulnerability> matches = new ArrayList<>();
+        
+        // Search in CVE IDs, names, and descriptions
+        for (Vulnerability vuln : allVulns) {
+            boolean isMatch = false;
+            
+            // Check CVE ID (exact match, case-insensitive)
+            if (vuln.getCveId() != null && 
+                vuln.getCveId().toLowerCase().contains(normalizedSearchTerm)) {
+                isMatch = true;
+            }
+            
+            // Check name (partial match, case-insensitive)
+            if (!isMatch && vuln.getName() != null && 
+                vuln.getName().toLowerCase().contains(normalizedSearchTerm)) {
+                isMatch = true;
+            }
+            
+            // Check description (partial match, case-insensitive)
+            if (!isMatch && vuln.getDescription() != null && 
+                vuln.getDescription().toLowerCase().contains(normalizedSearchTerm)) {
+                isMatch = true;
+            }
+            
+            if (isMatch) {
+                matches.add(vuln);
+            }
+        }
+        
+        if (matches.isEmpty()) {
+            return String.format("🔍 No vulnerabilities found matching '%s' in project '%s'.\n\n" +
+                                "💡 Use 'list vulnerabilities' to see all vulnerabilities in the project.", 
+                                searchTerm, project.getName());
+        }
+        
+        StringBuilder response = new StringBuilder();
+        response.append(String.format("🔍 Search Results for '%s' in project '%s' (%d found):\n\n", 
+                                     searchTerm, project.getName(), matches.size()));
+        
+        // Group by severity
+        Map<Severity, List<Vulnerability>> bySeverity = new HashMap<>();
+        for (Vulnerability vuln : matches) {
+            bySeverity.computeIfAbsent(vuln.getSeverity(), k -> new ArrayList<>()).add(vuln);
+        }
+        
+        // Display by severity (critical first)
+        for (Severity severity : Arrays.asList(Severity.CRITICAL, Severity.HIGH, Severity.MEDIUM, Severity.LOW, Severity.INFO)) {
+            List<Vulnerability> vulnList = bySeverity.get(severity);
+            if (vulnList != null && !vulnList.isEmpty()) {
+                response.append(severity.getFormattedName()).append(" (").append(vulnList.size()).append("):\n");
+                for (Vulnerability vuln : vulnList) {
+                    response.append("  • ");
+                    
+                    // Use CVE-aware display formatting
+                    String displayName = CveUtils.formatDisplayNameWithContext(vuln, true);
+                    response.append(displayName).append("\n");
+                    
+                    // Show matched context if it's in description
+                    if (vuln.getDescription() != null && 
+                        vuln.getDescription().toLowerCase().contains(normalizedSearchTerm) &&
+                        !vuln.getName().toLowerCase().contains(normalizedSearchTerm)) {
+                        
+                        String desc = vuln.getDescription();
+                        int index = desc.toLowerCase().indexOf(normalizedSearchTerm);
+                        if (index >= 0) {
+                            int start = Math.max(0, index - 30);
+                            int end = Math.min(desc.length(), index + normalizedSearchTerm.length() + 30);
+                            String context = desc.substring(start, end);
+                            if (start > 0) context = "..." + context;
+                            if (end < desc.length()) context = context + "...";
+                            response.append("    ↳ ").append(context).append("\n");
+                        }
                     }
-                    response.append("\n");
                 }
                 response.append("\n");
             }
@@ -493,9 +703,12 @@ public class ProjectCommandProcessor {
         
         help.append("🔍 **Vulnerability Management:**\n");
         help.append("  • add vulnerability \"SQL Injection\" to 192.168.1.100\n");
-        help.append("  • add vulnerability \"XSS\" to 192.168.1.100 at path \"/login\" with severity high\n");
+        help.append("  • add vulnerability \"CVE-2023-1234\" to 192.168.1.100 at path \"/login\" with severity high\n");
         help.append("  • list vulnerabilities\n");
-        help.append("  • list vulnerabilities for 192.168.1.100\n\n");
+        help.append("  • list vulnerabilities for 192.168.1.100\n");
+        help.append("  • show CVE-2023-1234\n");
+        help.append("  • search vulnerability \"injection\"\n");
+        help.append("  • search cve \"2023\"\n\n");
         
         help.append("📄 **Reporting:**\n");
         help.append("  • generate report\n");
