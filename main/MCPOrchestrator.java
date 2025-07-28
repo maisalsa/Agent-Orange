@@ -54,6 +54,12 @@ public class MCPOrchestrator {
     /** Natural language processor for project commands */
     private final ProjectCommandProcessor projectCommandProcessor;
     
+    /** Information gathering orchestrator */
+    private final InformationGatherer informationGatherer;
+    
+    /** Natural language processor for information gathering commands */
+    private final InformationGatheringCommandProcessor infoGatheringProcessor;
+    
     /** Default collection name for vector database operations */
     private static final String DEFAULT_COLLECTION = "pentesting_docs";
     
@@ -77,6 +83,10 @@ public class MCPOrchestrator {
         // Initialize project management
         this.projectManager = new ProjectManager();
         this.projectCommandProcessor = new ProjectCommandProcessor(this.projectManager);
+        
+        // Initialize information gathering
+        this.informationGatherer = new InformationGatherer();
+        this.infoGatheringProcessor = new InformationGatheringCommandProcessor(this.informationGatherer, this.projectManager);
         
         // Validate that at least one module is available
         if (llama == null && embeddingClient == null && chromaDBClient == null && ghidraBridge == null) {
@@ -109,6 +119,11 @@ public class MCPOrchestrator {
             // Check for project management commands first (highest priority)
             if (projectCommandProcessor.isProjectCommand(message)) {
                 return handleProjectCommand(message);
+            }
+            
+            // Check for information gathering commands (second priority)
+            if (infoGatheringProcessor.isInformationGatheringCommand(message)) {
+                return handleInformationGatheringCommand(message);
             }
             
             // Check for Ghidra binary analysis requests
@@ -497,11 +512,46 @@ public class MCPOrchestrator {
                 response += "\n\n💡 Tip: Search for existing vulnerabilities with: 'search vulnerabilities for [target]'";
             }
             
+            // If a project was created/opened, offer information gathering
+            if (response.contains("Created project") || response.contains("Opened project")) {
+                response += "\n\n💡 Tip: Start information gathering with: 'gather info on [project_name]'";
+            }
+            
             return response;
             
         } catch (Exception e) {
             System.err.println("[MCPOrchestrator] Project command failed: " + e.getMessage());
             return "❌ Error processing project command: " + e.getMessage();
+        }
+    }
+
+    /**
+     * Handles information gathering commands.
+     * 
+     * @param message User's information gathering command
+     * @return Response from information gathering processor
+     */
+    private String handleInformationGatheringCommand(String message) {
+        System.out.println("[MCPOrchestrator] Handling information gathering command");
+        
+        try {
+            String response = infoGatheringProcessor.processCommand(message);
+            
+            // If sensitive data was found, remind about security
+            if (response.contains("sensitive data") || response.contains("credentials") || response.contains("API keys")) {
+                response += "\n\n🔒 Security Note: Sensitive data is sanitized for display and logged securely.";
+            }
+            
+            // If Burp data was imported, suggest vulnerability analysis
+            if (response.contains("Burp Suite Import Complete") && ghidraBridge != null) {
+                response += "\n\n💡 Tip: For deeper analysis, use Ghidra to examine any binaries mentioned in the findings.";
+            }
+            
+            return response;
+            
+        } catch (Exception e) {
+            System.err.println("[MCPOrchestrator] Information gathering command failed: " + e.getMessage());
+            return "❌ Error processing information gathering command: " + e.getMessage();
         }
     }
 
@@ -536,6 +586,11 @@ public class MCPOrchestrator {
                 projectManager.shutdown();
             }
             
+            // Shutdown information gathering
+            if (informationGatherer != null) {
+                informationGatherer.shutdown();
+            }
+            
             System.out.println("[MCPOrchestrator] Shutdown complete");
         } catch (Exception e) {
             System.err.println("[MCPOrchestrator] Error during shutdown: " + e.getMessage());
@@ -552,6 +607,7 @@ public class MCPOrchestrator {
         System.out.println("  ChromaDBClient: " + (chromaDBClient != null ? "Available" : "Not available"));
         System.out.println("  GhidraBridge: " + (ghidraBridge != null ? "Available" : "Not available"));
         System.out.println("  ProjectManager: " + (projectManager != null ? "Available (" + projectManager.getProjectNames().size() + " projects)" : "Not available"));
+        System.out.println("  InformationGatherer: " + (informationGatherer != null ? "Available (" + informationGatherer.getActiveSessionCount() + " sessions)" : "Not available"));
     }
 
     /**
