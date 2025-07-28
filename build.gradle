@@ -189,17 +189,23 @@ task compileJNI(type: Exec) {
         file('bin').mkdirs()
     }
     
-    // Compilation command with proper include paths
+    // Compilation command with i7-7700T optimizations
     if (isWindows) {
-        commandLine 'g++', '-shared', '-fPIC',
+        commandLine 'g++', '-shared', '-fPIC', '-O3',
+                   '-march=skylake', '-mtune=skylake', '-mavx2', '-mfma',
+                   '-pthread', '-flto', '-DNDEBUG',
                    "-I$includePath", "-I$platformInclude", '-Imain',
                    '-o', outputLib,
-                   'main/llama_jni.cpp'
+                   'main/llama_jni.cpp',
+                   '-Wl,-O1', '-Wl,--strip-all'
     } else {
-        commandLine 'g++', '-shared', '-fPIC',
+        commandLine 'g++', '-shared', '-fPIC', '-O3',
+                   '-march=skylake', '-mtune=skylake', '-mavx2', '-mfma',
+                   '-pthread', '-flto', '-DNDEBUG',
                    "-I$includePath", "-I$platformInclude", '-Imain',
                    '-o', outputLib,
-                   'main/llama_jni.cpp'
+                   'main/llama_jni.cpp',
+                   '-Wl,-O1', '-Wl,--strip-all'
     }
     
     // Only run if source files are newer
@@ -273,8 +279,8 @@ test {
     systemProperty 'java.library.path', 'bin'
     systemProperty 'java.awt.headless', 'true'
     
-    // JVM arguments for tests
-    jvmArgs '-Xmx2g', '-Xms1g'
+    // JVM arguments for tests - Optimized for i7-7700T
+jvmArgs '-Xmx2g', '-Xms512m', '-XX:+UseG1GC', '-XX:MaxGCPauseMillis=100', '-XX:+UseStringDeduplication'
     
     // Retry failed tests
     retry {
